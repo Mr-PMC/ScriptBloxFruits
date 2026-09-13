@@ -67,6 +67,11 @@ local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
 local CommF = Remotes and Remotes:WaitForChild("CommF_", 10)
 local CommE = Remotes and Remotes:WaitForChild("CommE", 10)
 
+-- Remote Fast Attack từ Blox Fruits Net Module
+local Modules = ReplicatedStorage:WaitForChild("Modules", 10)
+local Net = Modules and Modules:WaitForChild("Net", 10)
+local RegisterAttack = Net and Net:WaitForChild("RE/RegisterAttack", 10)
+
 local EnemiesFolder = Workspace:WaitForChild("Enemies", 10)
 local NPCsFolder = Workspace:WaitForChild("NPCs", 10)
 local MapFolder = Workspace:WaitForChild("Map", 10)
@@ -162,17 +167,65 @@ task.spawn(function()
     end
 end)
 
+-- Vòng lặp Fast Attack
+task.spawn(function()
+    local comboStep = 1
+    while task.wait(0.07) do -- Tần suất 0.07s tối ưu DPS mà không bị kick
+        pcall(function()
+            if Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
+                local char, root, hum = CharacterManager.Get()
+                if char and hum and hum.Health > 0 then
+                    local tool = char:FindFirstChildOfClass("Tool")
+                    if tool and tool:FindFirstChild("RemoteFunctionManager") or (tool and (tool.ToolTip == "Melee" or tool.ToolTip == "Sword" or tool.ToolTip == "Blox Fruit")) then
+                        if RegisterAttack then
+                            RegisterAttack:FireServer(0.4, comboStep)
+                            comboStep = (comboStep % 4) + 1
+                        end
+                    end
+                end
+            end
+        end)
+    end
+end)
+
 -- ====================================================================
 -- 8. XÂY DỰNG GIAO DIỆN CHỨC NĂNG CHÍNH (BUILD REAL UI ELEMENTS)
 -- ====================================================================
 local function BuildUI()
-        -- TAB SETTING
+    -- TAB SETTING
+    Tabs.Setting:AddSection("Combat Settings")
+
+    Tabs.Setting:AddToggle("FastAttack", {
+        Title = "Fast Attack",
+        Description = "Tự động kích hoạt đòn đánh nhanh không delay",
+        Default = false
+    })
+
+    Tabs.Setting:AddToggle("AutoBuso", {
+        Title = "Auto Turn On Buso",
+        Description = "",
+        Default = true
+    })
+
+    Tabs.Setting:AddToggle("AutoKen", {
+        Title = "Auto Turn On Ken",
+        Description = "",
+        Default = true
+    })
+
+    Tabs.Setting:AddToggle("AntiAFK", {
+        Title = "Anti AFK",
+        Description = "",
+        Default = true
+    })
+
     Tabs.Setting:AddSection("Config")
+
     Tabs.Setting:AddButton({
         Title = "Reset Config",
         Description = "Delete saved configuration file",
         Callback = function()
-            autoSaveActive = false -- Đã truy cập đúng biến chung
+            autoSaveActive = false
             pcall(function()
                 local filePath = "FatCatHub/settings/" .. DEFAULT_CONFIG .. ".json"
                 if isfile and isfile(filePath) then
@@ -186,22 +239,6 @@ local function BuildUI()
             })
         end
     })
-    Tabs.Setting:AddToggle("AutoBuso", {
-        Title = "Auto Turn On Buso",
-        Description = "",
-        Default = True
-    })
-    Tabs.Setting:AddToggle("AutoKen", {
-        Title = "Auto Turn On Ken",
-        Description = "",
-        Default = True
-    })
-    Tabs.Setting:AddToggle("AntiAFK", {
-        Title = "Anti AFK",
-        Description = "",
-        Default = true
-    })
-    
 end
 
 -- ====================================================================
