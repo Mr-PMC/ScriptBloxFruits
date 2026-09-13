@@ -67,10 +67,11 @@ local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
 local CommF = Remotes and Remotes:WaitForChild("CommF_", 10)
 local CommE = Remotes and Remotes:WaitForChild("CommE", 10)
 
--- Remote Fast Attack từ Blox Fruits Net Module
+-- Remotes Fast Attack & Hit Registration
 local Modules = ReplicatedStorage:WaitForChild("Modules", 10)
 local Net = Modules and Modules:WaitForChild("Net", 10)
 local RegisterAttack = Net and Net:WaitForChild("RE/RegisterAttack", 10)
+local RegisterHit = Net and Net:WaitForChild("RE/RegisterHit", 10)
 
 local EnemiesFolder = Workspace:WaitForChild("Enemies", 10)
 local NPCsFolder = Workspace:WaitForChild("NPCs", 10)
@@ -122,7 +123,7 @@ local DEFAULT_CONFIG = "BloxFruit_" .. LocalPlayer.Name
 local autoSaveActive = true
 
 -- ====================================================================
--- 7. CÁC HÀM HỖ TRỢ HOẠT ĐỘNG
+-- 7. CÁC HÀM HỖ TRỢ HOẠT ĐỘNG & FAST ATTACK LOGIC
 -- ====================================================================
 LocalPlayer.Idled:Connect(function()
     if Fluent.Options and Fluent.Options.AntiAFK and Fluent.Options.AntiAFK.Value then
@@ -167,19 +168,51 @@ task.spawn(function()
     end
 end)
 
--- Vòng lặp Fast Attack
+-- Hàm quét danh sách Part quái nằm trong khoảng cách cho phép
+local function GetEnemiesInRange(maxDistance)
+    local hitTargets = {}
+    local char, root = CharacterManager.Get()
+    if not root or not EnemiesFolder then return hitTargets end
+
+    for _, enemy in ipairs(EnemiesFolder:GetChildren()) do
+        local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
+        local enemyHum = enemy:FindFirstChildOfClass("Humanoid")
+        if enemyRoot and enemyHum and enemyHum.Health > 0 then
+            local dist = (enemyRoot.Position - root.Position).Magnitude
+            if dist <= (maxDistance or 60) then
+                local hitPart = enemy:FindFirstChild("Head") or enemyRoot
+                table.insert(hitTargets, hitPart)
+            end
+        end
+    end
+    return hitTargets
+end
+
+-- Vòng lặp Fast Attack nâng cấp
 task.spawn(function()
     local comboStep = 1
-    while task.wait(0.07) do -- Tần suất 0.07s tối ưu DPS mà không bị kick
+    while task.wait(0.05) do
         pcall(function()
             if Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
                 local char, root, hum = CharacterManager.Get()
                 if char and hum and hum.Health > 0 then
                     local tool = char:FindFirstChildOfClass("Tool")
-                    if tool and tool:FindFirstChild("RemoteFunctionManager") or (tool and (tool.ToolTip == "Melee" or tool.ToolTip == "Sword" or tool.ToolTip == "Blox Fruit")) then
-                        if RegisterAttack then
-                            RegisterAttack:FireServer(0.4, comboStep)
-                            comboStep = (comboStep % 4) + 1
+                    if tool and (tool.ToolTip == "Melee" or tool.ToolTip == "Sword" or tool.ToolTip == "Blox Fruit") then
+                        local targets = GetEnemiesInRange(60)
+                        if #targets > 0 then
+                            -- Ép vũ khí tung đòn đánh trên Client
+                            tool:Activate()
+
+                            -- Đăng ký nhịp vung đòn
+                            if RegisterAttack then
+                                RegisterAttack:FireServer(0.4, comboStep)
+                                comboStep = (comboStep % 4) + 1
+                            end
+
+                            -- Đăng ký sát thương trực tiếp lên danh sách quái đã quét
+                            if RegisterHit then
+                                RegisterHit:FireServer(targets[1], targets)
+                            end
                         end
                     end
                 end
