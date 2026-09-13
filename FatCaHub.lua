@@ -164,7 +164,7 @@ task.spawn(function()
     end
 end)
 
--- Bảng băm tra cứu nhanh các Class hiệu ứng
+-- Xóa hiệu ứng đánh
 local FX_Classes = {
     ["ParticleEmitter"] = true,
     ["Trail"]           = true,
@@ -173,11 +173,12 @@ local FX_Classes = {
     ["Smoke"]           = true,
     ["Sparkles"]        = true,
     ["Highlight"]       = true,
-    ["Decal"]           = true,
-    ["Texture"]         = true
+    ["Explosion"]       = true
 }
-
--- Kiểm tra xem đối tượng có phải bộ phận cơ thể/trang phục nhân vật hay không
+local FX_Keywords = {
+    "fx", "effect", "slash", "skill", "blast", "particle", "hit", 
+    "aura", "wave", "ray", "beam", "explosion", "projectile", "magic", "dash"
+}
 local function isCharacterBodyPart(obj)
     local model = obj:FindFirstAncestorOfClass("Model")
     if model and Players:GetPlayerFromCharacter(model) then
@@ -190,54 +191,55 @@ local function isCharacterBodyPart(obj)
     end
     return false
 end
+local function isFXPart(obj)
+    if not (obj:IsA("BasePart") or obj:IsA("MeshPart")) then return false end
+    if obj.CanCollide then return false end -- Hầu hết Part chiêu thức không có va chạm
+    local ancestor = obj.Parent
+    if not ancestor then return false end
+    if (MapFolder and obj:IsDescendantOf(MapFolder)) or (NPCsFolder and obj:IsDescendantOf(NPCsFolder)) then
+        return false
+    end
+    if isCharacterBodyPart(obj) then
+        return false
+    end
+    if Workspace.CurrentCamera and obj:IsDescendantOf(Workspace.CurrentCamera) then
+        return true
+    end
+    local nameLower = obj.Name:lower()
+    local parentNameLower = ancestor.Name:lower()
+    for _, kw in ipairs(FX_Keywords) do
+        if nameLower:find(kw) or parentNameLower:find(kw) then
+            return true
+        end
+    end
 
+    return false
+end
 local function cleanAttackFX(v)
-    -- Chỉ thực hiện khi Toggle RemoveAttackFX được BẬT
     if not (Fluent.Options and Fluent.Options.RemoveAttackFX and Fluent.Options.RemoveAttackFX.Value) then
         return
     end
-
-    -- 1. Tắt các class hạt/vệt đao và khóa không cho game tự bật lại qua Event
     if FX_Classes[v.ClassName] then
         pcall(function()
-            if v:IsA("Decal") or v:IsA("Texture") then
-                v.Transparency = 1
-            else
-                v.Enabled = false
-                if not v:GetAttribute("FXHooked") then
-                    v:SetAttribute("FXHooked", true)
-                    v:GetPropertyChangedSignal("Enabled"):Connect(function()
-                        if Fluent.Options and Fluent.Options.RemoveAttackFX and Fluent.Options.RemoveAttackFX.Value and v.Enabled then
-                            v.Enabled = false
-                        end
-                    end)
-                end
+            v.Enabled = false
+            if not v:GetAttribute("FXHooked") then
+                v:SetAttribute("FXHooked", true)
+                v:GetPropertyChangedSignal("Enabled"):Connect(function()
+                    if Fluent.Options and Fluent.Options.RemoveAttackFX and Fluent.Options.RemoveAttackFX.Value and v.Enabled then
+                        v.Enabled = false
+                    end
+                end)
             end
         end)
         return
     end
-
-    -- 2. Xóa sạch Part/Mesh 3D hiệu ứng chiêu thức & đòn đánh (Cả bản thân lẫn người chơi khác)
-    if (v:IsA("BasePart") or v:IsA("MeshPart")) then
-        -- Bỏ qua bộ phận cơ thể nhân vật
-        if isCharacterBodyPart(v) then
-            return
-        end
-
-        -- Bỏ qua địa hình bản đồ
-        if v.CanCollide and not (v.Parent and v.Parent:FindFirstChildOfClass("Humanoid")) then
-            return
-        end
-
-        -- Ép Size = 0 và Transparency = 1 để triệt tiêu hoàn toàn lệnh Tween/Animation của game
+    if isFXPart(v) then
         pcall(function()
             v.Transparency = 1
             v.Size = Vector3.zero
         end)
     end
 end
-
--- Lắng nghe sự kiện khi có hiệu ứng chiêu thức mới sinh ra trong Workspace hoặc Camera
 Workspace.DescendantAdded:Connect(cleanAttackFX)
 if Workspace.CurrentCamera then
     Workspace.CurrentCamera.DescendantAdded:Connect(cleanAttackFX)
