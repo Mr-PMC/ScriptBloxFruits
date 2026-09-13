@@ -168,6 +168,52 @@ task.spawn(function()
     end
 end)
 
+-- ====================================================================
+-- 7. CÁC HÀM HỖ TRỢ HOẠT ĐỘNG & FAST ATTACK LOGIC
+-- ====================================================================
+LocalPlayer.Idled:Connect(function()
+    if Fluent.Options and Fluent.Options.AntiAFK and Fluent.Options.AntiAFK.Value then
+        pcall(function()
+            VirtualUser:Button2Down(Vector2.new(0, 0), Camera.CFrame)
+            task.wait(1)
+            VirtualUser:Button2Up(Vector2.new(0, 0), Camera.CFrame)
+        end)
+    end
+end)
+
+-- Vòng lặp Auto Turn on Buso
+task.spawn(function()
+    while task.wait(1) do
+        pcall(function()
+            if Fluent.Options and Fluent.Options.AutoBuso and Fluent.Options.AutoBuso.Value then
+                local char, root, hum = CharacterManager.Get()
+                if char and hum and hum.Health > 0 then
+                    if not char:FindFirstChild("HasBuso") and CommF then
+                        CommF:InvokeServer("Buso")
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- Vòng lặp Auto Turn on Ken (Haki Quan Sát)
+task.spawn(function()
+    while task.wait(1) do
+        pcall(function()
+            if Fluent.Options and Fluent.Options.AutoKen and Fluent.Options.AutoKen.Value then
+                local char, root, hum = CharacterManager.Get()
+                if char and hum and hum.Health > 0 then
+                    local isKenActive = LocalPlayer:GetAttribute("KenActive")
+                    if not isKenActive and CommE then
+                        CommE:FireServer("Ken", true)
+                    end
+                end
+            end
+        end)
+    end
+end)
+
 -- Hàm quét danh sách Part quái nằm trong khoảng cách cho phép
 local function GetEnemiesInRange(maxDistance)
     local hitTargets = {}
@@ -188,31 +234,38 @@ local function GetEnemiesInRange(maxDistance)
     return hitTargets
 end
 
--- Vòng lặp Fast Attack nâng cấp
+-- Vòng lặp Fast Attack hoàn chỉnh & Debug
 task.spawn(function()
     local comboStep = 1
-    while task.wait(0.05) do
+    while task.wait(0.06) do
         pcall(function()
             if Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
                 local char, root, hum = CharacterManager.Get()
                 if char and hum and hum.Health > 0 then
                     local tool = char:FindFirstChildOfClass("Tool")
-                    if tool and (tool.ToolTip == "Melee" or tool.ToolTip == "Sword" or tool.ToolTip == "Blox Fruit") then
+                    
+                    -- Bỏ kiểm tra ToolTip, chỉ cần đang cầm 1 Tool bất kỳ trên tay
+                    if tool then
                         local targets = GetEnemiesInRange(60)
                         if #targets > 0 then
-                            -- Ép vũ khí tung đòn đánh trên Client
+                            -- 1. Giả lập click chuột thật để kích hoạt vũ khí phía Client
+                            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
                             tool:Activate()
 
-                            -- Đăng ký nhịp vung đòn
+                            -- 2. Đăng ký nhịp đánh
                             if RegisterAttack then
                                 RegisterAttack:FireServer(0.4, comboStep)
                                 comboStep = (comboStep % 4) + 1
                             end
 
-                            -- Đăng ký sát thương trực tiếp lên danh sách quái đã quét
+                            -- 3. Gửi đăng ký sát thương lên toàn bộ quái trong vùng quét
                             if RegisterHit then
                                 RegisterHit:FireServer(targets[1], targets)
                             end
+
+                            -- Debug log ra Console F9 để bạn xác nhận script đang chạy
+                            print("[Fat Cat Hub] Fast Attack đang phát sát thương lên " .. tostring(#targets) .. " mục tiêu!")
                         end
                     end
                 end
