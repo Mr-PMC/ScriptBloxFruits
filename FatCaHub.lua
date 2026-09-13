@@ -70,80 +70,98 @@ local RegisterHit = Net and Net:WaitForChild("RegisterHit", 5)
 local EnemiesFolder = Workspace:WaitForChild("Enemies", 10)
 
 -- ====================================================================
--- 5. FAST ATTACK SYSTEM (ĐÃ FIX TRUY CẬP FRAMEWORK)
+-- 5. FAST ATTACK THỰC THI TRỰC TIẾP (DIRECT REMOTE ATTACK)
 -- ====================================================================
-local CombatFrameworkModule = nil
+local CombatFramework = nil
 
 local function GetCombatFramework()
-    if CombatFrameworkModule then return CombatFrameworkModule end
-
-    -- Cách 1: Require trực tiếp từ PlayerScripts (Chạy được trên 100% Executor)
-    pcall(function()
-        local playerScripts = LocalPlayer:FindFirstChild("PlayerScripts")
-        if playerScripts then
-            local cf = playerScripts:FindFirstChild("CombatFramework")
-            if cf then
-                CombatFrameworkModule = require(cf)
-            end
-        end
-    end)
-
-    if CombatFrameworkModule then return CombatFrameworkModule end
-
-    -- Cách 2: Quét getgc nếu cách 1 bị chặn
+    if CombatFramework then return CombatFramework end
     if getgc then
         pcall(function()
             for _, v in pairs(getgc(true)) do
                 if type(v) == "table" and rawget(v, "activeController") then
-                    CombatFrameworkModule = v
+                    CombatFramework = v
                     return
                 end
             end
         end)
     end
-
-    return CombatFrameworkModule
+    return CombatFramework
 end
 
 -- Vòng lặp Fast Attack chính
 task.spawn(function()
     while task.wait(0.01) do
-        if Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
+        if Fluent and Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
             pcall(function()
                 local char, root, hum = CharacterManager.Get()
-                if not char then return end
+                if not char or not root or not hum then return end
 
                 local tool = char:FindFirstChildOfClass("Tool")
                 if not tool or tool.ToolTip == "Gun" then return end
 
-                -- Truy cập Controller đòn đánh
-                local framework = GetCombatFramework()
-                if framework and framework.activeController then
-                    local controller = framework.activeController
-                    if controller.equippedWeapon then
-                        -- Bỏ qua thời gian chờ đòn đánh
+                -- Lấy danh sách quái trong phạm vi 60 studs
+                local hits = {}
+                local primaryPart = nil
+
+                if EnemiesFolder then
+                    for _, mob in ipairs(EnemiesFolder:GetChildren()) do
+                        local mRoot = mob:FindFirstChild("HumanoidRootPart") or mob:FindFirstChild("Head")
+                        local mHum = mob:FindFirstChildOfClass("Humanoid")
+                        
+                        if mRoot and mHum and mHum.Health > 0 then
+                            local dist = (root.Position - mRoot.Position).Magnitude
+                            if dist <= 60 then
+                                if not primaryPart then primaryPart = mRoot end
+                                table.insert(hits, {mob, mRoot})
+                            end
+                        end
+                    end
+                end
+
+                -- Quét thêm Người chơi (nếu bật PvP / Đánh người)
+                for _, plr in ipairs(Players:GetPlayers()) do
+                    if plr ~= LocalPlayer and plr.Character then
+                        local pRoot = plr.Character:FindFirstChild("HumanoidRootPart") or plr.Character:FindFirstChild("Head")
+                        local pHum = plr.Character:FindFirstChildOfClass("Humanoid")
+                        if pRoot and pHum and pHum.Health > 0 then
+                            local dist = (root.Position - pRoot.Position).Magnitude
+                            if dist <= 60 then
+                                if not primaryPart then primaryPart = pRoot end
+                                table.insert(hits, {plr.Character, pRoot})
+                            end
+                        end
+                    end
+                end
+
+                -- Nếu tìm thấy mục tiêu trong tầm
+                if #hits > 0 and primaryPart then
+                    -- 1. Kích hoạt vũ khí trên tay
+                    tool:Activate()
+
+                    -- 2. Bỏ qua Delay nếu Executor đọc được CombatFramework
+                    local framework = GetCombatFramework()
+                    if framework and framework.activeController then
+                        local controller = framework.activeController
                         controller.timeToNextAttack = 0
                         controller.timeToNextRegen = 0
                         controller.increment = 3
-                        controller.hitboxMagnitude = 60 -- Tăng bán kính đòn đánh lên 60 studs
-
-                        -- Kích hoạt đòn đánh gốc của Blox Fruits
-                        if type(controller.attack) == "function" then
-                            controller:attack()
-                        end
+                        controller.hitboxMagnitude = 60
                     end
-                else
-                    -- Dự phòng bằng mô phỏng Click nếu Module bị mã hóa hoàn toàn
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-                end
 
-                -- Tắt Animation chém để tối ưu FPS & tránh giật màn hình
-                if hum.Animator then
-                    for _, track in ipairs(hum.Animator:GetPlayingAnimationTracks()) do
-                        local name = track.Name:lower()
-                        if name:find("attack") or name:find("slash") or name:find("melee") or name:find("swing") then
-                            track:Stop()
+                    -- 3. Gửi Remote gây sát thương chuẩn cấu hình Blox Fruits
+                    if RegisterAttack and RegisterHit then
+                        RegisterAttack:FireServer(0)
+                        RegisterHit:FireServer(primaryPart, hits)
+                    end
+
+                    -- 4. Tắt Animation vung tay để không bị giật lag
+                    if hum.Animator then
+                        for _, track in ipairs(hum.Animator:GetPlayingAnimationTracks()) do
+                            local name = track.Name:lower()
+                            if name:find("attack") or name:find("slash") or name:find("melee") or name:find("swing") then
+                                track:Stop()
+                            end
                         end
                     end
                 end
@@ -262,6 +280,6 @@ Window:SelectTab(1)
 
 Fluent:Notify({
     Title = "Fat Cat Hub",
-    Content = "Fat Cat Hub v2.5 - Fast Attack đã sửa hoàn toàn!",
+    Content = "Fat Cat Hub v2.5 - Fast Attack đã sửa hoàn chỉnh!",
     Duration = 5
 })
