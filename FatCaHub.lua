@@ -117,8 +117,11 @@ local DEFAULT_CONFIG = "BloxFruit_" .. LocalPlayer.Name
 local autoSaveActive = true
 
 -- ====================================================================
--- 7. CÁC HÀM HỖ TRỢ HOẠT ĐỘNG
+-- 7. CÁC HÀM HỖ TRỢ HOẠT ĐỘNG & TỐI ƯU HIỆU ỨNG (FX CLEANER)
 -- ====================================================================
+
+
+-- Anti AFK
 LocalPlayer.Idled:Connect(function()
     if Fluent.Options and Fluent.Options.AntiAFK and Fluent.Options.AntiAFK.Value then
         pcall(function()
@@ -162,17 +165,63 @@ task.spawn(function()
     end
 end)
 
+local FX_Classes = {
+    ["ParticleEmitter"] = true,
+    ["Trail"]           = true,
+    ["Beam"]            = true,
+    ["Fire"]            = true,
+    ["Smoke"]           = true,
+    ["Sparkles"]        = true
+}
+
+local function cleanAttackFX(v)
+    -- Chỉ thực hiện khi người dùng Bật toggle RemoveAttackFX
+    if not (Fluent.Options and Fluent.Options.RemoveAttackFX and Fluent.Options.RemoveAttackFX.Value) then
+        return
+    end
+
+    -- 1. Tắt các hiệu ứng hạt / vệt đao
+    if FX_Classes[v.ClassName] then
+        v.Enabled = false
+        return
+    end
+    
+    -- 2. Ẩn các Part/Mesh 3D làm sóng chém, vòng nổ khi tung chiêu
+    if (v:IsA("BasePart") or v:IsA("MeshPart")) and not v.CanCollide then
+        -- Không can thiệp vào Part trên người nhân vật
+        if LocalPlayer.Character and v:IsDescendantOf(LocalPlayer.Character) then 
+            return 
+        end
+        
+        local name = v.Name:lower()
+        local parentName = v.Parent and v.Parent.Name:lower() or ""
+        
+        if name:find("fx") or name:find("effect") or name:find("slash") or name:find("hit") or name:find("blast") or parentName:find("fx") or parentName:find("effect") then
+            pcall(function()
+                v.Transparency = 1
+            end)
+        end
+    end
+end
+
+-- Bắt sự kiện khi có hiệu ứng mới xuất hiện
+Workspace.DescendantAdded:Connect(cleanAttackFX)
+if Workspace.CurrentCamera then
+    Workspace.CurrentCamera.DescendantAdded:Connect(cleanAttackFX)
+end
+
 -- ====================================================================
 -- 8. XÂY DỰNG GIAO DIỆN CHỨC NĂNG CHÍNH (BUILD REAL UI ELEMENTS)
 -- ====================================================================
 local function BuildUI()
-        -- TAB SETTING
+    -- TAB SETTING
+
     Tabs.Setting:AddSection("Config")
     Tabs.Setting:AddButton({
         Title = "Reset Config",
         Description = "Delete saved configuration file",
         Callback = function()
-            autoSaveActive = false -- Đã truy cập đúng biến chung
+            autoSaveActive = false
             pcall(function()
                 local filePath = "FatCatHub/settings/" .. DEFAULT_CONFIG .. ".json"
                 if isfile and isfile(filePath) then
@@ -186,15 +235,16 @@ local function BuildUI()
             })
         end
     })
+    
     Tabs.Setting:AddToggle("AutoBuso", {
         Title = "Auto Turn On Buso",
         Description = "",
-        Default = True
+        Default = true
     })
     Tabs.Setting:AddToggle("AutoKen", {
         Title = "Auto Turn On Ken",
         Description = "",
-        Default = True
+        Default = true
     })
     Tabs.Setting:AddToggle("AntiAFK", {
         Title = "Anti AFK",
@@ -202,6 +252,20 @@ local function BuildUI()
         Default = true
     })
     
+    Tabs.Setting:AddSection("Performance & Optimization")
+    local RemoveFXToggle = Tabs.Setting:AddToggle("RemoveAttackFX", {
+        Title = "Remove Attack FX",
+        Description = "Xóa hiệu ứng chiêu thức, vệt chém và vòng nổ",
+        Default = true
+    })
+    -- Khi Bật công tắc -> Quét dọn các hiệu ứng đang có sẵn ngay lập tức
+    RemoveFXToggle:OnChanged(function(Value)
+        if Value then
+            for _, v in ipairs(Workspace:GetDescendants()) do
+                cleanAttackFX(v)
+            end
+        end
+    end)
 end
 
 -- ====================================================================
@@ -245,6 +309,13 @@ end
 -- ====================================================================
 BuildUI()
 SetupConfigManager()
+
+-- Chạy quét ban đầu nếu Toggle được lưu trạng thái bật (Default = true)
+if Fluent.Options.RemoveAttackFX and Fluent.Options.RemoveAttackFX.Value then
+    for _, v in ipairs(Workspace:GetDescendants()) do
+        cleanAttackFX(v)
+    end
+end
 
 Window:SelectTab(1)
 
