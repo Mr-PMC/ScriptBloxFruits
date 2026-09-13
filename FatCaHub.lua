@@ -188,13 +188,13 @@ local function BuildUI()
     })
     Tabs.Setting:AddToggle("AutoBuso", {
         Title = "Auto Turn On Buso",
-        Description = "Tự động bật Haki",
-        Default = false
+        Description = "",
+        Default = True
     })
     Tabs.Setting:AddToggle("AutoKen", {
         Title = "Auto Turn On Ken",
-        Description = "Tự động bật Haki Quan Sát",
-        Default = false
+        Description = "",
+        Default = True
     })
     Tabs.Setting:AddToggle("AntiAFK", {
         Title = "Anti AFK",
