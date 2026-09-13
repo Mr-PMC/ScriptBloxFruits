@@ -70,60 +70,42 @@ local RegisterHit = Net and Net:WaitForChild("RegisterHit", 5)
 local EnemiesFolder = Workspace:WaitForChild("Enemies", 10)
 
 -- ====================================================================
--- 5. FAST ATTACK & COMBAT FRAMEWORK HOOK
+-- 5. FAST ATTACK SYSTEM (ĐÃ FIX TRUY CẬP FRAMEWORK)
 -- ====================================================================
-local CombatFramework = nil
+local CombatFrameworkModule = nil
 
 local function GetCombatFramework()
-    if CombatFramework then return CombatFramework end
+    if CombatFrameworkModule then return CombatFrameworkModule end
+
+    -- Cách 1: Require trực tiếp từ PlayerScripts (Chạy được trên 100% Executor)
+    pcall(function()
+        local playerScripts = LocalPlayer:FindFirstChild("PlayerScripts")
+        if playerScripts then
+            local cf = playerScripts:FindFirstChild("CombatFramework")
+            if cf then
+                CombatFrameworkModule = require(cf)
+            end
+        end
+    end)
+
+    if CombatFrameworkModule then return CombatFrameworkModule end
+
+    -- Cách 2: Quét getgc nếu cách 1 bị chặn
     if getgc then
-        for _, v in pairs(getgc(true)) do
-            if type(v) == "table" and rawget(v, "activeController") then
-                CombatFramework = v
-                return CombatFramework
+        pcall(function()
+            for _, v in pairs(getgc(true)) do
+                if type(v) == "table" and rawget(v, "activeController") then
+                    CombatFrameworkModule = v
+                    return
+                end
             end
-        end
+        end)
     end
-    return nil
+
+    return CombatFrameworkModule
 end
 
--- Quét tất cả mục tiêu có máu trong vùng 60 studs
-local function GetNearbyTargets(radius)
-    local targets = {}
-    local char, root, hum = CharacterManager.Get()
-    if not root then return targets end
-
-    local function CheckAndAddTarget(model)
-        if not model or model == char then return end
-        local tRoot = model:FindFirstChild("HumanoidRootPart")
-        local tHum = model:FindFirstChildOfClass("Humanoid")
-        
-        if tRoot and tHum and tHum.Health > 0 then
-            local distance = (root.Position - tRoot.Position).Magnitude
-            if distance <= radius then
-                table.insert(targets, tRoot)
-            end
-        end
-    end
-
-    -- 1. Quét Quái
-    if EnemiesFolder then
-        for _, mob in ipairs(EnemiesFolder:GetChildren()) do
-            CheckAndAddTarget(mob)
-        end
-    end
-
-    -- 2. Quét Người chơi
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character then
-            CheckAndAddTarget(plr.Character)
-        end
-    end
-
-    return targets
-end
-
--- Vòng lặp Fast Attack
+-- Vòng lặp Fast Attack chính
 task.spawn(function()
     while task.wait(0.01) do
         if Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
@@ -134,39 +116,35 @@ task.spawn(function()
                 local tool = char:FindFirstChildOfClass("Tool")
                 if not tool or tool.ToolTip == "Gun" then return end
 
-                local targets = GetNearbyTargets(60)
-                if #targets > 0 then
-                    -- 1. Kích hoạt vũ khí trên Client để Server ghi nhận trạng thái vung tay
-                    tool:Activate()
-
-                    -- 2. Bypass Delay nếu lấy được CombatFramework
-                    local framework = GetCombatFramework()
-                    if framework and framework.activeController then
-                        local controller = framework.activeController
+                -- Truy cập Controller đòn đánh
+                local framework = GetCombatFramework()
+                if framework and framework.activeController then
+                    local controller = framework.activeController
+                    if controller.equippedWeapon then
+                        -- Bỏ qua thời gian chờ đòn đánh
                         controller.timeToNextAttack = 0
+                        controller.timeToNextRegen = 0
                         controller.increment = 3
-                        controller.hitboxMagnitude = 60
-                    end
+                        controller.hitboxMagnitude = 60 -- Tăng bán kính đòn đánh lên 60 studs
 
-                    -- 3. Ngắt Animation vung tay để mượt game
-                    if hum.Animator then
-                        for _, track in ipairs(hum.Animator:GetPlayingAnimationTracks()) do
-                            if track.Name:lower():find("attack") or track.Name:lower():find("slash") or track.Name:lower():find("melee") then
-                                track:Stop()
-                            end
+                        -- Kích hoạt đòn đánh gốc của Blox Fruits
+                        if type(controller.attack) == "function" then
+                            controller:attack()
                         end
                     end
+                else
+                    -- Dự phòng bằng mô phỏng Click nếu Module bị mã hóa hoàn toàn
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+                end
 
-                    -- 4. Gửi Packet gây sát thương chuẩn cấu hình Blox Fruits
-                    if RegisterAttack and RegisterHit then
-                        RegisterAttack:FireServer(0)
-
-                        local hitList = {}
-                        for _, tRoot in ipairs(targets) do
-                            table.insert(hitList, {tRoot.Parent, tRoot})
+                -- Tắt Animation chém để tối ưu FPS & tránh giật màn hình
+                if hum.Animator then
+                    for _, track in ipairs(hum.Animator:GetPlayingAnimationTracks()) do
+                        local name = track.Name:lower()
+                        if name:find("attack") or name:find("slash") or name:find("melee") or name:find("swing") then
+                            track:Stop()
                         end
-
-                        RegisterHit:FireServer(targets[1], hitList)
                     end
                 end
             end)
@@ -222,7 +200,7 @@ local function BuildUI()
 
     Tabs.Setting:AddToggle("FastAttack", {
         Title = "Fast Attack",
-        Description = "Tự động đánh tất cả mục tiêu có máu trong phạm vi",
+        Description = "Tự động đánh siêu tốc mọi mục tiêu trong phạm vi",
         Default = true
     })
 
@@ -284,6 +262,6 @@ Window:SelectTab(1)
 
 Fluent:Notify({
     Title = "Fat Cat Hub",
-    Content = "Fat Cat Hub v2.5 - Fast Attack đã sửa lỗi gây sát thương!",
+    Content = "Fat Cat Hub v2.5 - Fast Attack đã sửa hoàn toàn!",
     Duration = 5
 })
