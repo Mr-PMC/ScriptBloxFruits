@@ -168,109 +168,100 @@ task.spawn(function()
     end
 end)
 
+
+
 -- ====================================================================
--- 7. CÁC HÀM HỖ TRỢ HOẠT ĐỘNG & FAST ATTACK LOGIC
+-- 1. CƠ CHẾ XÓA HIỆU ỨNG ĐÁNH (FAST ATTACK NO-FX / ANTI-LAG)
 -- ====================================================================
-LocalPlayer.Idled:Connect(function()
-    if Fluent.Options and Fluent.Options.AntiAFK and Fluent.Options.AntiAFK.Value then
-        pcall(function()
-            VirtualUser:Button2Down(Vector2.new(0, 0), Camera.CFrame)
-            task.wait(1)
-            VirtualUser:Button2Up(Vector2.new(0, 0), Camera.CFrame)
-        end)
+local function ClearHitEffects(parent)
+    if not parent then return end
+    for _, v in ipairs(parent:GetChildren()) do
+        if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") or v:IsA("Explosion") then
+            v:Destroy()
+        elseif v:IsA("BasePart") and (v.Name:find("Hit") or v.Name:find("Slash") or v.Name:find("Effect")) then
+            v:Destroy()
+        end
+    end
+end
+
+-- Tự động dọn dẹp FX sinh ra ở Workspace trong lúc Fast Attack
+Workspace.ChildAdded:Connect(function(child)
+    if Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
+        if child:IsA("ParticleEmitter") or child:IsA("Trail") or child.Name:find("Effect") or child.Name:find("Slash") then
+            task.defer(child.Destroy, child)
+        end
     end
 end)
 
--- Vòng lặp Auto Turn on Buso
-task.spawn(function()
-    while task.wait(1) do
-        pcall(function()
-            if Fluent.Options and Fluent.Options.AutoBuso and Fluent.Options.AutoBuso.Value then
-                local char, root, hum = CharacterManager.Get()
-                if char and hum and hum.Health > 0 then
-                    if not char:FindFirstChild("HasBuso") and CommF then
-                        CommF:InvokeServer("Buso")
-                    end
-                end
-            end
-        end)
-    end
-end)
-
--- Vòng lặp Auto Turn on Ken (Haki Quan Sát)
-task.spawn(function()
-    while task.wait(1) do
-        pcall(function()
-            if Fluent.Options and Fluent.Options.AutoKen and Fluent.Options.AutoKen.Value then
-                local char, root, hum = CharacterManager.Get()
-                if char and hum and hum.Health > 0 then
-                    local isKenActive = LocalPlayer:GetAttribute("KenActive")
-                    if not isKenActive and CommE then
-                        CommE:FireServer("Ken", true)
-                    end
-                end
-            end
-        end)
-    end
-end)
-
--- Hàm quét danh sách Part quái nằm trong khoảng cách cho phép
-local function GetEnemiesInRange(maxDistance)
-    local hitTargets = {}
+-- ====================================================================
+-- 2. HÀM QUÉT MỤC TIÊU TỐI ƯU (GỌN NẸ, ÉP CHẠY LÊN MỌI MỤC TIÊU)
+-- ====================================================================
+local function GetFastTargets(maxDist)
+    local targets = {}
     local char, root = CharacterManager.Get()
-    if not root or not EnemiesFolder then return hitTargets end
+    if not root then return targets end
 
-    for _, enemy in ipairs(EnemiesFolder:GetChildren()) do
-        local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
-        local enemyHum = enemy:FindFirstChildOfClass("Humanoid")
-        if enemyRoot and enemyHum and enemyHum.Health > 0 then
-            local dist = (enemyRoot.Position - root.Position).Magnitude
-            if dist <= (maxDistance or 60) then
-                local hitPart = enemy:FindFirstChild("Head") or enemyRoot
-                table.insert(hitTargets, hitPart)
+    local rootPos = root.Position
+    local containers = {EnemiesFolder, NPCsFolder}
+
+    -- Quét gộp Quái vật & NPC
+    for _, folder in ipairs(containers) do
+        if folder then
+            for _, model in ipairs(folder:GetChildren()) do
+                local hum = model:FindFirstChildOfClass("Humanoid")
+                local hrp = model:FindFirstChild("HumanoidRootPart")
+                if hum and hum.Health > 0 and hrp and (hrp.Position - rootPos).Magnitude <= maxDist then
+                    table.insert(targets, model:FindFirstChild("Head") or hrp)
+                end
             end
         end
     end
-    return hitTargets
+
+    -- Quét Người chơi (PvP)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            if hum and hum.Health > 0 and hrp and (hrp.Position - rootPos).Magnitude <= maxDist then
+                table.insert(targets, plr.Character:FindFirstChild("Head") or hrp)
+            end
+        end
+    end
+
+    return targets
 end
 
--- Vòng lặp Fast Attack hoàn chỉnh & Debug
+-- ====================================================================
+-- 3. VÒNG LẶP FAST ATTACK SIÊU TỐC & KHÔNG LAG
+-- ====================================================================
 task.spawn(function()
     local comboStep = 1
-    while task.wait(0.06) do
-        pcall(function()
-            if Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
+    while task.wait(0.05) do
+        if Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
+            pcall(function()
                 local char, root, hum = CharacterManager.Get()
-                if char and hum and hum.Health > 0 then
-                    local tool = char:FindFirstChildOfClass("Tool")
-                    
-                    -- Bỏ kiểm tra ToolTip, chỉ cần đang cầm 1 Tool bất kỳ trên tay
-                    if tool then
-                        local targets = GetEnemiesInRange(60)
-                        if #targets > 0 then
-                            -- 1. Giả lập click chuột thật để kích hoạt vũ khí phía Client
-                            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-                            tool:Activate()
+                if not (char and hum and hum.Health > 0) then return end
+                
+                local tool = char:FindFirstChildOfClass("Tool")
+                if not tool then return end -- Bắt buộc phải cầm vũ khí trên tay
 
-                            -- 2. Đăng ký nhịp đánh
-                            if RegisterAttack then
-                                RegisterAttack:FireServer(0.4, comboStep)
-                                comboStep = (comboStep % 4) + 1
-                            end
+                local targets = GetFastTargets(60)
+                if #targets > 0 then
+                    -- Triệt tiêu hiệu ứng vũ khí & nhân vật khi tung đòn
+                    ClearHitEffects(char)
+                    ClearHitEffects(tool)
 
-                            -- 3. Gửi đăng ký sát thương lên toàn bộ quái trong vùng quét
-                            if RegisterHit then
-                                RegisterHit:FireServer(targets[1], targets)
-                            end
-
-                            -- Debug log ra Console F9 để bạn xác nhận script đang chạy
-                            print("[Fat Cat Hub] Fast Attack đang phát sát thương lên " .. tostring(#targets) .. " mục tiêu!")
-                        end
+                    -- Gửi tín hiệu đánh & sát thương đồng bộ delay 0.1s
+                    if RegisterAttack then
+                        RegisterAttack:FireServer(0.1, comboStep)
+                        comboStep = (comboStep % 4) + 1
+                    end
+                    if RegisterHit then
+                        RegisterHit:FireServer(targets[1], targets)
                     end
                 end
-            end
-        end)
+            end)
+        end
     end
 end)
 
