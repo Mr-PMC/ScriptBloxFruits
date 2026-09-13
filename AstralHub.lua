@@ -57,9 +57,9 @@ repeat
 until tick() - t0 > 15
 local pid = tonumber(game.PlaceId) or game.PlaceId
 -- Khai báo ID các Sea
-World1 = (pid == 2753915549 or pid == 85211729168715)
-World2 = (pid == 4442272183)
-World3 = (pid == 7449423635)
+World1 = (pid == 85211729168715)
+World2 = (pid == 79091703265657)
+World3 = (pid == 100117331123089)
 -- Kiểm tra: Nếu không khớp với bất kỳ World nào thì mới KICK
 Sea = World1 or World2 or World3
 if not Sea then
