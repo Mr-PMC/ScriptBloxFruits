@@ -164,6 +164,99 @@ task.spawn(function()
     end
 end)
 
+local CombatFramework = nil
+
+local function GetCombatFramework()
+    if CombatFramework then return CombatFramework end
+    if getgc then
+        for _, v in pairs(getgc(true)) do
+            if type(v) == "table" and rawget(v, "activeController") then
+                CombatFramework = v
+                return CombatFramework
+            end
+        end
+    end
+    return nil
+end
+
+-- Hàm lấy tất cả mục tiêu trong phạm vi (Quái + Người chơi) thỏa mãn điều kiện
+local function GetNearbyTargets(radius)
+    local targets = {}
+    local char, root, hum = CharacterManager.Get()
+    if not root then return targets end
+
+    local maxDistSq = radius * radius
+
+    local function CheckAndAddTarget(model)
+        if not model or model == char then return end
+        local tRoot = model:FindFirstChild("HumanoidRootPart")
+        local tHum = model:FindFirstChildOfClass("Humanoid")
+        
+        -- Lọc điều kiện: Có HumanoidRootPart, có Humanoid và Máu > 0
+        if tRoot and tHum and tHum.Health > 0 then
+            local distSq = (root.Position - tRoot.Position).Magnitude
+            if distSq <= maxDistSq then
+                table.insert(targets, tRoot)
+            end
+        end
+    end
+
+    -- 1. Quét Quái
+    if EnemiesFolder then
+        for _, mob in ipairs(EnemiesFolder:GetChildren()) do
+            CheckAndAddTarget(mob)
+        end
+    end
+
+    -- 2. Quét Người chơi
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            CheckAndAddTarget(plr.Character)
+        end
+    end
+
+    return targets
+end
+
+-- Vòng lặp Fast Attack chính
+task.spawn(function()
+    while task.wait(0.015) do
+        if Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
+            pcall(function()
+                local char, root, hum = CharacterManager.Get()
+                if not char then return end
+
+                local tool = char:FindFirstChildOfClass("Tool")
+                if not tool or tool.ToolTip == "Gun" then return end
+
+                local targets = GetNearbyTargets(60) -- Phạm vi 60 studs
+                if #targets > 0 then
+                    local framework = GetCombatFramework()
+                    if framework and framework.activeController then
+                        local controller = framework.activeController
+                        controller.timeToNextAttack = 0
+                        controller.increment = 3
+                        controller.hitboxMagnitude = 60
+                    end
+
+                    if hum.Animator then
+                        for _, track in ipairs(hum.Animator:GetPlayingAnimationTracks()) do
+                            if track.Name:lower():find("attack") or track.Name:lower():find("slash") then
+                                track:Stop()
+                            end
+                        end
+                    end
+
+                    if RegisterAttack and RegisterHit then
+                        RegisterAttack:FireServer(0)
+                        RegisterHit:FireServer(targets[1], targets)
+                    end
+                end
+            end)
+        end
+    end
+end)
+
 -- ====================================================================
 -- 8. XÂY DỰNG GIAO DIỆN CHỨC NĂNG CHÍNH (BUILD REAL UI ELEMENTS)
 -- ====================================================================
@@ -189,7 +282,11 @@ local function BuildUI()
             })
         end
     })
-    
+    Tabs.Setting:AddToggle("FastAttack", {
+        Title = "Fast Attack",
+        Description = "",
+        Default = true
+    })
     Tabs.Setting:AddToggle("AutoBuso", {
         Title = "Auto Turn On Buso",
         Description = "",
