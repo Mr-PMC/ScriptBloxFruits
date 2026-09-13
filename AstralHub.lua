@@ -113,10 +113,12 @@ weaponSc = function(weapon)
         end
     end
 end
-hookfunction(require(game:GetService("ReplicatedStorage").Effect.Container.Death),function() end)
-hookfunction(require(game:GetService("ReplicatedStorage"):WaitForChild("GuideModule")).ChangeDisplayedNPC,function()end)
-hookfunction(error, function()end)
-hookfunction(warn, function()end)
+local effectContainer = game:GetService("ReplicatedStorage"):WaitForChild("EffectContainer")
+hookfunction(require(effectContainer:WaitForChild("Death")), function() end)
+hookfunction(require(game:GetService("ReplicatedStorage"):WaitForChild("GuideModule")).ChangeDisplayedNPC, function() end)
+-- Comment tạm 2 dòng chặn log này lại để nếu có lỗi khác Roblox sẽ hiện số dòng chuẩn
+--hookfunction(error, function()end)
+--hookfunction(warn, function()end)
 local Rock = workspace:FindFirstChild("Rocks")
 if Rock then Rock:Destroy()end
 gay = (function()
