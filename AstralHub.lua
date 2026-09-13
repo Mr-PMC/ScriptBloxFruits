@@ -819,63 +819,6 @@ local Window = Fluent:CreateWindow({
     MinimizeKey = Enum.KeyCode.End
 })
 
--- Nút hiện/ẩn menu (Draggable + Image Ready)
-local MobileGui = Instance.new("ScreenGui")
-MobileGui.Name = "AstralMobileToggle"
-MobileGui.ResetOnSpawn = false
-MobileGui.Parent = game:GetService("CoreGui")
-
-local Btn = Instance.new("ImageButton") 
-Btn.Size = UDim2.new(0, 50, 0, 50)
-Btn.Position = UDim2.new(0, 15, 0.4, 0)
-Btn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Btn.BorderSizePixel = 0
-Btn.Image = "" -- SAU NÀY BẠN DÁN LINK ẢNH VÀO ĐÂY (Ví dụ: "rbxassetid://123456789")
-Btn.Parent = MobileGui
-
-local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(0, 10)
-Corner.Parent = Btn
-
--- Hàm kéo thả (Drag Script)
-local dragging, dragInput, dragStart, startPos
-Btn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = Btn.Position
-    end
-end)
-
-Btn.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
-end)
-
-game:GetService("UserInputService").InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        local delta = input.Position - dragStart
-        Btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-
-game:GetService("UserInputService").InputEnded:Connect(function(input)
-    if input == dragInput then
-        dragging = false
-        dragInput = nil
-    end
-end)
-
--- Sự kiện nhấn để mở/đóng menu
-Btn.MouseButton1Click:Connect(function()
-    pcall(function()
-        if Window and Window.Minimize then
-            Window:Minimize()
-        end
-    end)
-end)
-
 local Tabs = {
   Main = Window:AddTab({Title = "Farm", Icon = ""}),
   Settings = Window:AddTab({Title = "Config", Icon = ""}),
