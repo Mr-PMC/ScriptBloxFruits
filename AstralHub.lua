@@ -120,17 +120,22 @@ hookfunction(require(game:GetService("ReplicatedStorage"):WaitForChild("GuideMod
 --hookfunction(error, function()end)
 --hookfunction(warn, function()end)
 local Rock = workspace:FindFirstChild("Rocks")
-if Rock then Rock:Destroy()end
-gay = (function()
-  local lighting = game:GetService("Lighting")
-  local lightingLayers = lighting:FindFirstChild("LightingLayers")
-  if lightingLayers and game:GetService("Lighting") and game:GetService("Lighting") then
-    local darkFog = lightingLayers:FindFirstChild("DarkFog")
-    if darkFog then darkFog:Destroy() end
-  end
-  local Water = workspace._WorldOrigin["Foam;"]
-  if Water and workspace._WorldOrigin["Foam;"] then Water:Destroy() end        
-end)()
+if Rock then Rock:Destroy() end
+task.spawn(function()
+    local lighting = game:GetService("Lighting")
+    local lightingLayers = lighting:FindFirstChild("LightingLayers")
+    if lightingLayers then
+        local darkFog = lightingLayers:FindFirstChild("DarkFog")
+        if darkFog then darkFog:Destroy() end
+    end
+    local worldOrigin = workspace:FindFirstChild("_WorldOrigin")
+    if worldOrigin then
+        local water = worldOrigin:FindFirstChild("Foam;") or worldOrigin:FindFirstChild("Foam")
+        if water then 
+            water:Destroy() 
+        end
+    end
+end)
 local Attack = {}
 Attack.__index = Attack
 Attack.Alive = function(model) if not model then return end local Humanoid = model:FindFirstChild("Humanoid") return Humanoid and Humanoid.Health > 0 end
