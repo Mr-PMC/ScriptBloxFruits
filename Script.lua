@@ -41,6 +41,47 @@ end
 
 
 
+MINGAMING HUB
+
+local ok, result = xpcall(function()
+    local source = game:HttpGet(
+        "https://raw.githubusercontent.com/Mr-PMC/ScriptBloxFruits/refs/heads/main/Mingaming_fix_v4.lua"
+    )
+
+    if not source or source == "" then
+        error("Không tải được MingamingHub.lua hoặc file rỗng")
+    end
+
+    local fn, compileError = loadstring(source)
+
+    if not fn then
+        error("COMPILE ERROR: " .. tostring(compileError))
+    end
+
+    return fn()
+end, function(err)
+    warn("")
+    warn("==============================================")
+    warn("        MINGAMING HUB - ERROR REPORT")
+    warn("==============================================")
+    warn("LỖI:", tostring(err))
+    warn("----------------------------------------------")
+    warn("TRACEBACK:")
+    warn(debug.traceback())
+    warn("==============================================")
+    return err
+end)
+
+if ok then
+    warn("[MINGAMING HUB] Execute thành công")
+else
+    warn("[MINGAMING HUB] Execute THẤT BẠI")
+    warn("MINGAMING HUB] Chi tiết:", tostring(result))
+end
+
+
+
+
 
 ASTRAL HUB
 
