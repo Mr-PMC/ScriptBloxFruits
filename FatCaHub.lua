@@ -145,6 +145,23 @@ task.spawn(function()
     end
 end)
 
+-- Vòng lặp Auto Turn on Ken (Haki Quan Sát)
+task.spawn(function()
+    while task.wait(1) do
+        pcall(function()
+            if Fluent.Options and Fluent.Options.AutoKen and Fluent.Options.AutoKen.Value then
+                local char, root, hum = CharacterManager.Get()
+                if char and hum and hum.Health > 0 then
+                    local isKenActive = LocalPlayer:GetAttribute("KenActive")
+                    if not isKenActive and CommE then
+                        CommE:FireServer("Ken", true)
+                    end
+                end
+            end
+        end)
+    end
+end)
+
 -- ====================================================================
 -- 8. XÂY DỰNG GIAO DIỆN CHỨC NĂNG CHÍNH (BUILD REAL UI ELEMENTS)
 -- ====================================================================
@@ -170,8 +187,13 @@ local function BuildUI()
         end
     })
     Tabs.Setting:AddToggle("AutoBuso", {
-        Title = "Auto Turn on Buso",
-        Description = "",
+        Title = "Auto Turn On Buso",
+        Description = "Tự động bật Haki",
+        Default = false
+    })
+    Tabs.Setting:AddToggle("AutoKen", {
+        Title = "Auto Turn On Ken",
+        Description = "Tự động bật Haki Quan Sát",
         Default = false
     })
     Tabs.Setting:AddToggle("AntiAFK", {
