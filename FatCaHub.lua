@@ -37,6 +37,10 @@ if not currentSea then
     return
 end
 
+local Sea1 = currentSea == 1
+local Sea2 = currentSea == 2
+local Sea3 = currentSea == 3
+
 -- ====================================================================
 -- 3. QUẢN LÝ NHÂN VẬT & MÁY CHỦ (CHARACTER MANAGER SYSTEM)
 -- ====================================================================
@@ -63,115 +67,14 @@ local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
 local CommF = Remotes and Remotes:WaitForChild("CommF_", 10)
 local CommE = Remotes and Remotes:WaitForChild("CommE", 10)
 
-local Net = ReplicatedStorage:WaitForChild("Modules", 10):WaitForChild("Net", 10)
-local RegisterAttack = Net and Net:WaitForChild("RegisterAttack", 5)
-local RegisterHit = Net and Net:WaitForChild("RegisterHit", 5)
-
 local EnemiesFolder = Workspace:WaitForChild("Enemies", 10)
+local NPCsFolder = Workspace:WaitForChild("NPCs", 10)
+local MapFolder = Workspace:WaitForChild("Map", 10)
+local SeaBeastsFolder = Workspace:FindFirstChild("SeaBeasts")
+local BoatsFolder = Workspace:FindFirstChild("Boats")
 
 -- ====================================================================
--- 5. FAST ATTACK THỰC THI TRỰC TIẾP (DIRECT REMOTE ATTACK)
--- ====================================================================
-local CombatFramework = nil
-
-local function GetCombatFramework()
-    if CombatFramework then return CombatFramework end
-    if getgc then
-        pcall(function()
-            for _, v in pairs(getgc(true)) do
-                if type(v) == "table" and rawget(v, "activeController") then
-                    CombatFramework = v
-                    return
-                end
-            end
-        end)
-    end
-    return CombatFramework
-end
-
--- Vòng lặp Fast Attack chính
-task.spawn(function()
-    while task.wait(0.01) do
-        if Fluent and Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
-            pcall(function()
-                local char, root, hum = CharacterManager.Get()
-                if not char or not root or not hum then return end
-
-                local tool = char:FindFirstChildOfClass("Tool")
-                if not tool or tool.ToolTip == "Gun" then return end
-
-                -- Lấy danh sách quái trong phạm vi 60 studs
-                local hits = {}
-                local primaryPart = nil
-
-                if EnemiesFolder then
-                    for _, mob in ipairs(EnemiesFolder:GetChildren()) do
-                        local mRoot = mob:FindFirstChild("HumanoidRootPart") or mob:FindFirstChild("Head")
-                        local mHum = mob:FindFirstChildOfClass("Humanoid")
-                        
-                        if mRoot and mHum and mHum.Health > 0 then
-                            local dist = (root.Position - mRoot.Position).Magnitude
-                            if dist <= 60 then
-                                if not primaryPart then primaryPart = mRoot end
-                                table.insert(hits, {mob, mRoot})
-                            end
-                        end
-                    end
-                end
-
-                -- Quét thêm Người chơi (nếu bật PvP / Đánh người)
-                for _, plr in ipairs(Players:GetPlayers()) do
-                    if plr ~= LocalPlayer and plr.Character then
-                        local pRoot = plr.Character:FindFirstChild("HumanoidRootPart") or plr.Character:FindFirstChild("Head")
-                        local pHum = plr.Character:FindFirstChildOfClass("Humanoid")
-                        if pRoot and pHum and pHum.Health > 0 then
-                            local dist = (root.Position - pRoot.Position).Magnitude
-                            if dist <= 60 then
-                                if not primaryPart then primaryPart = pRoot end
-                                table.insert(hits, {plr.Character, pRoot})
-                            end
-                        end
-                    end
-                end
-
-                -- Nếu tìm thấy mục tiêu trong tầm
-                if #hits > 0 and primaryPart then
-                    -- 1. Kích hoạt vũ khí trên tay
-                    tool:Activate()
-
-                    -- 2. Bỏ qua Delay nếu Executor đọc được CombatFramework
-                    local framework = GetCombatFramework()
-                    if framework and framework.activeController then
-                        local controller = framework.activeController
-                        controller.timeToNextAttack = 0
-                        controller.timeToNextRegen = 0
-                        controller.increment = 3
-                        controller.hitboxMagnitude = 60
-                    end
-
-                    -- 3. Gửi Remote gây sát thương chuẩn cấu hình Blox Fruits
-                    if RegisterAttack and RegisterHit then
-                        RegisterAttack:FireServer(0)
-                        RegisterHit:FireServer(primaryPart, hits)
-                    end
-
-                    -- 4. Tắt Animation vung tay để không bị giật lag
-                    if hum.Animator then
-                        for _, track in ipairs(hum.Animator:GetPlayingAnimationTracks()) do
-                            local name = track.Name:lower()
-                            if name:find("attack") or name:find("slash") or name:find("melee") or name:find("swing") then
-                                track:Stop()
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-    end
-end)
-
--- ====================================================================
--- 6. KHỞI TẠO FRAMEWORK FLUENT UI & TABS
+-- 5. KHỞI TẠO FRAMEWORK FLUENT UI & TABS
 -- ====================================================================
 local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mr-PMC/FluentUI/refs/heads/master/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mr-PMC/FluentUI/refs/heads/master/Addons/SaveManager.lua"))()
@@ -207,43 +110,69 @@ for _, tabData in ipairs(TabDefinitions) do
     Tabs[tabData[1]] = Window:AddTab({ Title = tabData[2], Icon = tabData[3] })
 end
 
+-- ====================================================================
+-- 6. BIẾN CẤU HÌNH DÙNG CHUNG (SHARED CONFIG VARIABLES)
+-- ====================================================================
 local DEFAULT_CONFIG = "BloxFruit_" .. LocalPlayer.Name
 local autoSaveActive = true
 
 -- ====================================================================
--- 7. XÂY DỰNG GIAO DIỆN CẤU HÌNH (BUILD UI ELEMENTS)
+-- 7. CÁC HÀM HỖ TRỢ HOẠT ĐỘNG
+-- ====================================================================
+LocalPlayer.Idled:Connect(function()
+    if Fluent.Options and Fluent.Options.AntiAFK and Fluent.Options.AntiAFK.Value then
+        pcall(function()
+            VirtualUser:Button2Down(Vector2.new(0, 0), Camera.CFrame)
+            task.wait(1)
+            VirtualUser:Button2Up(Vector2.new(0, 0), Camera.CFrame)
+        end)
+    end
+end)
+
+-- Vòng lặp Auto Turn on Buso
+task.spawn(function()
+    while task.wait(1) do
+        pcall(function()
+            if Fluent.Options and Fluent.Options.AutoBuso and Fluent.Options.AutoBuso.Value then
+                local char, root, hum = CharacterManager.Get()
+                if char and hum and hum.Health > 0 then
+                    if not char:FindFirstChild("HasBuso") and CommF then
+                        CommF:InvokeServer("Buso")
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- Vòng lặp Auto Turn on Ken (Haki Quan Sát)
+task.spawn(function()
+    while task.wait(1) do
+        pcall(function()
+            if Fluent.Options and Fluent.Options.AutoKen and Fluent.Options.AutoKen.Value then
+                local char, root, hum = CharacterManager.Get()
+                if char and hum and hum.Health > 0 then
+                    local isKenActive = LocalPlayer:GetAttribute("KenActive")
+                    if not isKenActive and CommE then
+                        CommE:FireServer("Ken", true)
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- ====================================================================
+-- 8. XÂY DỰNG GIAO DIỆN CHỨC NĂNG CHÍNH (BUILD REAL UI ELEMENTS)
 -- ====================================================================
 local function BuildUI()
-    Tabs.Setting:AddSection("Fast Attack")
-
-    Tabs.Setting:AddToggle("FastAttack", {
-        Title = "Fast Attack",
-        Description = "Tự động đánh siêu tốc mọi mục tiêu trong phạm vi",
-        Default = true
-    })
-
-    Tabs.Setting:AddSection("Automation Settings")
-    
-    Tabs.Setting:AddToggle("AutoBuso", {
-        Title = "Auto Turn On Buso",
-        Default = true
-    })
-    
-    Tabs.Setting:AddToggle("AutoKen", {
-        Title = "Auto Turn On Ken",
-        Default = true
-    })
-    
-    Tabs.Setting:AddToggle("AntiAFK", {
-        Title = "Auto Anti AFK",
-        Default = true
-    })
-
+        -- TAB SETTING
+    Tabs.Setting:AddSection("Config")
     Tabs.Setting:AddButton({
         Title = "Reset Config",
-        Description = "Xóa tệp cấu hình đã lưu",
+        Description = "Delete saved configuration file",
         Callback = function()
-            autoSaveActive = false
+            autoSaveActive = false -- Đã truy cập đúng biến chung
             pcall(function()
                 local filePath = "FatCatHub/settings/" .. DEFAULT_CONFIG .. ".json"
                 if isfile and isfile(filePath) then
@@ -252,34 +181,75 @@ local function BuildUI()
             end)
             Fluent:Notify({
                 Title = "Fat Cat Hub",
-                Content = "Đã xóa Config thành công!",
+                Content = "Config deleted! Execute the script again to apply default.",
                 Duration = 5
             })
         end
     })
+    Tabs.Setting:AddToggle("AutoBuso", {
+        Title = "Auto Turn On Buso",
+        Description = "",
+        Default = True
+    })
+    Tabs.Setting:AddToggle("AutoKen", {
+        Title = "Auto Turn On Ken",
+        Description = "",
+        Default = True
+    })
+    Tabs.Setting:AddToggle("AntiAFK", {
+        Title = "Anti AFK",
+        Description = "",
+        Default = true
+    })
+    
 end
 
 -- ====================================================================
--- 8. THỰC THI CHƯƠNG TRÌNH
+-- 9. QUẢN LÝ CẤU HÌNH & TỰ ĐỘNG LƯU (SAVE MANAGER & CONFIG)
+-- ====================================================================
+local function SetupConfigManager()
+    SaveManager:SetLibrary(Fluent)
+    InterfaceManager:SetLibrary(Fluent)
+    SaveManager:SetFolder("FatCatHub")
+    InterfaceManager:SetFolder("FatCatHub")
+    SaveManager:IgnoreThemeSettings()
+    SaveManager:SetIgnoreIndexes({})
+    InterfaceManager:BuildInterfaceSection(Tabs.Setting)
+    pcall(function()
+        SaveManager:Load(DEFAULT_CONFIG)
+    end)
+    local saveThread = nil
+    local function RequestAutoSave()
+        if not autoSaveActive then return end
+        if saveThread then task.cancel(saveThread) end
+        
+        saveThread = task.delay(0.5, function()
+            pcall(function()
+                SaveManager:Save(DEFAULT_CONFIG)
+            end)
+        end)
+    end
+    task.defer(function()
+        for _, option in pairs(Fluent.Options) do
+            if type(option) == "table" and typeof(option.OnChanged) == "function" then
+                option:OnChanged(function()
+                    RequestAutoSave()
+                end)
+            end
+        end
+    end)
+end
+
+-- ====================================================================
+-- 10. THỰC THI KHỞI CHẠY HỆ THỐNG
 -- ====================================================================
 BuildUI()
-
-SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetLibrary(Fluent)
-SaveManager:SetFolder("FatCatHub")
-InterfaceManager:SetFolder("FatCatHub")
-SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({})
-InterfaceManager:BuildInterfaceSection(Tabs.Setting)
-
-pcall(function()
-    SaveManager:Load(DEFAULT_CONFIG)
-end)
+SetupConfigManager()
 
 Window:SelectTab(1)
 
 Fluent:Notify({
     Title = "Fat Cat Hub",
-    Content = "Fat Cat Hub v2.5 - Fast Attack đã sửa hoàn chỉnh!",
+    Content = "Fat Cat Hub v2.5 - Tải Hoàn Tất!",
     Duration = 5
 })
