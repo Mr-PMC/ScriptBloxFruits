@@ -120,7 +120,6 @@ local autoSaveActive = true
 -- 7. CÁC HÀM HỖ TRỢ HOẠT ĐỘNG & TỐI ƯU HIỆU ỨNG (FX CLEANER)
 -- ====================================================================
 
-
 -- Anti AFK
 LocalPlayer.Idled:Connect(function()
     if Fluent.Options and Fluent.Options.AntiAFK and Fluent.Options.AntiAFK.Value then
@@ -165,46 +164,80 @@ task.spawn(function()
     end
 end)
 
+-- Bảng băm tra cứu nhanh các Class hiệu ứng
 local FX_Classes = {
     ["ParticleEmitter"] = true,
     ["Trail"]           = true,
     ["Beam"]            = true,
     ["Fire"]            = true,
     ["Smoke"]           = true,
-    ["Sparkles"]        = true
+    ["Sparkles"]        = true,
+    ["Highlight"]       = true,
+    ["Decal"]           = true,
+    ["Texture"]         = true
 }
 
+-- Kiểm tra xem đối tượng có phải bộ phận cơ thể/trang phục nhân vật hay không
+local function isCharacterBodyPart(obj)
+    local model = obj:FindFirstAncestorOfClass("Model")
+    if model and Players:GetPlayerFromCharacter(model) then
+        if obj:IsA("Accessory") or obj:IsA("Shirt") or obj:IsA("Pants") or obj.Name == "HumanoidRootPart" then
+            return true
+        end
+        if obj.CanCollide or obj.Name == "Head" or obj.Name:find("Torso") or obj.Name:find("Arm") or obj.Name:find("Leg") then
+            return true
+        end
+    end
+    return false
+end
+
 local function cleanAttackFX(v)
-    -- Chỉ thực hiện khi người dùng Bật toggle RemoveAttackFX
+    -- Chỉ thực hiện khi Toggle RemoveAttackFX được BẬT
     if not (Fluent.Options and Fluent.Options.RemoveAttackFX and Fluent.Options.RemoveAttackFX.Value) then
         return
     end
 
-    -- 1. Tắt các hiệu ứng hạt / vệt đao
+    -- 1. Tắt các class hạt/vệt đao và khóa không cho game tự bật lại qua Event
     if FX_Classes[v.ClassName] then
-        v.Enabled = false
+        pcall(function()
+            if v:IsA("Decal") or v:IsA("Texture") then
+                v.Transparency = 1
+            else
+                v.Enabled = false
+                if not v:GetAttribute("FXHooked") then
+                    v:SetAttribute("FXHooked", true)
+                    v:GetPropertyChangedSignal("Enabled"):Connect(function()
+                        if Fluent.Options and Fluent.Options.RemoveAttackFX and Fluent.Options.RemoveAttackFX.Value and v.Enabled then
+                            v.Enabled = false
+                        end
+                    end)
+                end
+            end
+        end)
         return
     end
-    
-    -- 2. Ẩn các Part/Mesh 3D làm sóng chém, vòng nổ khi tung chiêu
-    if (v:IsA("BasePart") or v:IsA("MeshPart")) and not v.CanCollide then
-        -- Không can thiệp vào Part trên người nhân vật
-        if LocalPlayer.Character and v:IsDescendantOf(LocalPlayer.Character) then 
-            return 
+
+    -- 2. Xóa sạch Part/Mesh 3D hiệu ứng chiêu thức & đòn đánh (Cả bản thân lẫn người chơi khác)
+    if (v:IsA("BasePart") or v:IsA("MeshPart")) then
+        -- Bỏ qua bộ phận cơ thể nhân vật
+        if isCharacterBodyPart(v) then
+            return
         end
-        
-        local name = v.Name:lower()
-        local parentName = v.Parent and v.Parent.Name:lower() or ""
-        
-        if name:find("fx") or name:find("effect") or name:find("slash") or name:find("hit") or name:find("blast") or parentName:find("fx") or parentName:find("effect") then
-            pcall(function()
-                v.Transparency = 1
-            end)
+
+        -- Bỏ qua địa hình bản đồ
+        if v.CanCollide and not (v.Parent and v.Parent:FindFirstChildOfClass("Humanoid")) then
+            return
         end
+
+        -- Ép Size = 0 và Transparency = 1 để triệt tiêu hoàn toàn lệnh Tween/Animation của game
+        pcall(function()
+            v.Transparency = 1
+            v.Size = Vector3.zero
+        end)
     end
 end
 
--- Bắt sự kiện khi có hiệu ứng mới xuất hiện
+-- Lắng nghe sự kiện khi có hiệu ứng chiêu thức mới sinh ra trong Workspace hoặc Camera
 Workspace.DescendantAdded:Connect(cleanAttackFX)
 if Workspace.CurrentCamera then
     Workspace.CurrentCamera.DescendantAdded:Connect(cleanAttackFX)
@@ -247,7 +280,7 @@ local function BuildUI()
         Default = true
     })
     Tabs.Setting:AddToggle("AntiAFK", {
-        Title = "Anti AFK",
+        Title = "Auto Anti AFK",
         Description = "",
         Default = true
     })
@@ -255,14 +288,20 @@ local function BuildUI()
     Tabs.Setting:AddSection("Performance & Optimization")
     local RemoveFXToggle = Tabs.Setting:AddToggle("RemoveAttackFX", {
         Title = "Remove Attack FX",
-        Description = "Xóa hiệu ứng chiêu thức, vệt chém và vòng nổ",
+        Description = "Xóa triệt để hiệu ứng chiêu thức, vệt chém và vòng nổ",
         Default = true
     })
-    -- Khi Bật công tắc -> Quét dọn các hiệu ứng đang có sẵn ngay lập tức
+    
+    -- Khi Bật công tắc -> Quét dọn các hiệu ứng đang có sẵn ngay lập tức trong Workspace và Camera
     RemoveFXToggle:OnChanged(function(Value)
         if Value then
             for _, v in ipairs(Workspace:GetDescendants()) do
                 cleanAttackFX(v)
+            end
+            if Workspace.CurrentCamera then
+                for _, v in ipairs(Workspace.CurrentCamera:GetDescendants()) do
+                    cleanAttackFX(v)
+                end
             end
         end
     end)
@@ -310,10 +349,15 @@ end
 BuildUI()
 SetupConfigManager()
 
--- Chạy quét ban đầu nếu Toggle được lưu trạng thái bật (Default = true)
+-- Chạy quét dọn ban đầu nếu Toggle được lưu trạng thái bật
 if Fluent.Options.RemoveAttackFX and Fluent.Options.RemoveAttackFX.Value then
     for _, v in ipairs(Workspace:GetDescendants()) do
         cleanAttackFX(v)
+    end
+    if Workspace.CurrentCamera then
+        for _, v in ipairs(Workspace.CurrentCamera:GetDescendants()) do
+            cleanAttackFX(v)
+        end
     end
 end
 
