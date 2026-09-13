@@ -63,7 +63,7 @@ World3 = (pid == 100117331123089)
 -- Kiểm tra: Nếu không khớp với bất kỳ World nào thì mới KICK
 Sea = World1 or World2 or World3
 if not Sea then
-    plr:Kick("❌ Error : A[12]Blox Fruits ❌ (ID lạ: " .. tostring(pid) .. ")")
+    plr:Kick("❌ Error : A[12]Dự án của tôi ❌ (ID lạ: " .. tostring(pid) .. ")")
 end
 Marines = function() replicated.Remotes.CommF_:InvokeServer("SetTeam","Marines") end
 Pirates = function() replicated.Remotes.CommF_:InvokeServer("SetTeam","Pirates") end
