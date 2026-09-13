@@ -2,7 +2,7 @@ FAT CAT HUB
 
 local ok, result = xpcall(function()
     local source = game:HttpGet(
-        "https://raw.githubusercontent.com/Mr-PMC/ScriptBloxFruits/refs/heads/main/Mingaming_fix_v4.lua"
+        "https://raw.githubusercontent.com/Mr-PMC/ScriptBloxFruits/refs/heads/main/FatCaHub.lua"
     )
 
     if not source or source == "" then
