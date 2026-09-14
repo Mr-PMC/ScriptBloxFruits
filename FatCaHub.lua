@@ -168,7 +168,21 @@ task.spawn(function()
     end
 end)
 
-
+-- Vòng lặp No Clip (Xuyên Tường)
+RunService.Stepped:Connect(function()
+    pcall(function()
+        if Fluent.Options and Fluent.Options.Noclip and Fluent.Options.Noclip.Value then
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end
+    end)
+end)
 -- ====================================================================
 -- 8. XÂY DỰNG GIAO DIỆN CHỨC NĂNG CHÍNH (BUILD REAL UI ELEMENTS)
 -- ====================================================================
@@ -185,7 +199,11 @@ local function BuildUI()
         Description = "",
         Default = true
     })
-
+    Tabs.Setting:AddToggle("Noclip", {
+        Title = "No Clip",
+        Description = "",
+        Default = false
+    })
     Tabs.Setting:AddToggle("AntiAFK", {
         Title = "Anti AFK",
         Description = "",
