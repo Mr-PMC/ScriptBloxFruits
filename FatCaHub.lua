@@ -183,6 +183,7 @@ RunService.Stepped:Connect(function()
         end
     end)
 end)
+
 -- ====================================================================
 -- 8. XÂY DỰNG GIAO DIỆN CHỨC NĂNG CHÍNH (BUILD REAL UI ELEMENTS)
 -- ====================================================================
@@ -199,11 +200,13 @@ local function BuildUI()
         Description = "",
         Default = true
     })
+
     Tabs.Setting:AddToggle("Noclip", {
-        Title = "No Clip",
-        Description = "",
+        Title = "No Clip (Xuyên Tường)",
+        Description = "Đi xuyên qua mọi vật thể rắn và địa hình",
         Default = false
     })
+
     Tabs.Setting:AddToggle("AntiAFK", {
         Title = "Anti AFK",
         Description = "",
