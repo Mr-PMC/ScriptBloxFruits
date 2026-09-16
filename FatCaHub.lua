@@ -67,12 +67,6 @@ local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
 local CommF = Remotes and Remotes:WaitForChild("CommF_", 10)
 local CommE = Remotes and Remotes:WaitForChild("CommE", 10)
 
--- Remotes Fast Attack & Hit Registration
-local Modules = ReplicatedStorage:WaitForChild("Modules", 10)
-local Net = Modules and Modules:WaitForChild("Net", 10)
-local RegisterAttack = Net and Net:WaitForChild("RE/RegisterAttack", 10)
-local RegisterHit = Net and Net:WaitForChild("RE/RegisterHit", 10)
-
 local EnemiesFolder = Workspace:WaitForChild("Enemies", 10)
 local NPCsFolder = Workspace:WaitForChild("NPCs", 10)
 local MapFolder = Workspace:WaitForChild("Map", 10)
@@ -122,187 +116,8 @@ end
 local DEFAULT_CONFIG = "BloxFruit_" .. LocalPlayer.Name
 local autoSaveActive = true
 
-local FarmConfig = {
-    FlySpeed = 310,
-    FarmDistance = 10,
-    BringMobRadius = 280
-}
-
 -- ====================================================================
--- 7. MATRIX QUEST DATA (CƠ SỞ DỮ LIỆU QUEST SEA 1, 2, 3)
--- ====================================================================
-local QuestDataMatrix = {
-    [1] = { -- Sea 1
-        {MinLevel = 1, MaxLevel = 9, Quest = "BanditQuest1", Level = 1, Mob = "Bandit [Lv. 5]", NPCPos = CFrame.new(1059.37, 16.45, 1550.42), MobPos = CFrame.new(1145, 17, 1634)},
-        {MinLevel = 10, MaxLevel = 14, Quest = "JungleQuest", Level = 1, Mob = "Monkey [Lv. 14]", NPCPos = CFrame.new(-1598.44, 36.85, 153.86), MobPos = CFrame.new(-1610, 37, 145)},
-        {MinLevel = 15, MaxLevel = 29, Quest = "JungleQuest", Level = 2, Mob = "Gorilla [Lv. 20]", NPCPos = CFrame.new(-1598.44, 36.85, 153.86), MobPos = CFrame.new(-1240, 6, 500)},
-        {MinLevel = 30, MaxLevel = 39, Quest = "BuggyQuest1", Level = 1, Mob = "Pirate [Lv. 35]", NPCPos = CFrame.new(-1140, 4, 3828), MobPos = CFrame.new(-1215, 4, 3915)},
-        {MinLevel = 40, MaxLevel = 59, Quest = "BuggyQuest1", Level = 2, Mob = "Brute [Lv. 45]", NPCPos = CFrame.new(-1140, 4, 3828), MobPos = CFrame.new(-1145, 14, 4300)},
-        {MinLevel = 60, MaxLevel = 89, Quest = "DesertQuest", Level = 1, Mob = "Desert Bandit [Lv. 60]", NPCPos = CFrame.new(894, 6, 4388), MobPos = CFrame.new(950, 6, 4450)},
-        {MinLevel = 90, MaxLevel = 119, Quest = "SnowQuest", Level = 1, Mob = "Snow Bandit [Lv. 90]", NPCPos = CFrame.new(1385, 87, -1298), MobPos = CFrame.new(1280, 105, -1380)},
-        {MinLevel = 120, MaxLevel = 149, Quest = "MarineQuest2", Level = 1, Mob = "Chief Petty Officer [Lv. 120]", NPCPos = CFrame.new(-5035, 28, 4324), MobPos = CFrame.new(-4850, 22, 4260)},
-        {MinLevel = 150, MaxLevel = 189, Quest = "SkyQuest", Level = 1, Mob = "Sky Bandit [Lv. 150]", NPCPos = CFrame.new(-4842, 717, -2623), MobPos = CFrame.new(-4975, 714, -2890)},
-        {MinLevel = 190, MaxLevel = 224, Quest = "PrisonerQuest", Level = 1, Mob = "Prisoner [Lv. 190]", NPCPos = CFrame.new(530, 2, 474), MobPos = CFrame.new(480, 2, 580)},
-        {MinLevel = 225, MaxLevel = 299, Quest = "ColosseumQuest", Level = 1, Mob = "Toga Warrior [Lv. 225]", NPCPos = CFrame.new(-1580, 7, -2980), MobPos = CFrame.new(-1800, 7, -2900)},
-        {MinLevel = 300, MaxLevel = 374, Quest = "MagmaQuest", Level = 1, Mob = "Military Soldier [Lv. 300]", NPCPos = CFrame.new(-5315, 12, 8515), MobPos = CFrame.new(-5400, 11, 8530)},
-        {MinLevel = 375, MaxLevel = 449, Quest = "FishmanQuest", Level = 1, Mob = "Fishman Warrior [Lv. 375]", NPCPos = CFrame.new(61122, 18, 1567), MobPos = CFrame.new(61000, 18, 1450)},
-        {MinLevel = 450, MaxLevel = 524, Quest = "SkyExp1Quest", Level = 1, Mob = "God's Guard [Lv. 450]", NPCPos = CFrame.new(-4720, 846, -1950), MobPos = CFrame.new(-4710, 844, -1860)},
-        {MinLevel = 525, MaxLevel = 624, Quest = "SkyExp2Quest", Level = 1, Mob = "Shandora Warrior [Lv. 525]", NPCPos = CFrame.new(-7860, 5545, -380), MobPos = CFrame.new(-7750, 5545, -430)},
-        {MinLevel = 625, MaxLevel = 699, Quest = "FountainQuest", Level = 1, Mob = "Corporal [Lv. 625]", NPCPos = CFrame.new(5258, 38, 4050), MobPos = CFrame.new(5100, 38, 4120)},
-    },
-    [2] = { -- Sea 2
-        {MinLevel = 700, MaxLevel = 724, Quest = "Area1Quest", Level = 1, Mob = "Raider [Lv. 700]", NPCPos = CFrame.new(-425, 73, 1835), MobPos = CFrame.new(-750, 73, 2400)},
-        {MinLevel = 725, MaxLevel = 774, Quest = "Area1Quest", Level = 2, Mob = "Mercenary [Lv. 725]", NPCPos = CFrame.new(-425, 73, 1835), MobPos = CFrame.new(-930, 73, 1420)},
-        {MinLevel = 775, MaxLevel = 874, Quest = "Area2Quest", Level = 1, Mob = "Swan Pirate [Lv. 775]", NPCPos = CFrame.new(635, 73, 918), MobPos = CFrame.new(880, 120, 1230)},
-        {MinLevel = 875, MaxLevel = 999, Quest = "MarineQuest", Level = 1, Mob = "Marine Lieutenant [Lv. 875]", NPCPos = CFrame.new(-2440, 73, -3220), MobPos = CFrame.new(-2800, 73, -3000)},
-        {MinLevel = 1000, MaxLevel = 1124, Quest = "SnowMountainQuest", Level = 1, Mob = "Snow Trooper [Lv. 1000]", NPCPos = CFrame.new(605, 400, -5370), MobPos = CFrame.new(500, 400, -5500)},
-        {MinLevel = 1125, MaxLevel = 1249, Quest = "IceSideQuest", Level = 1, Mob = "Ice Military [Lv. 1125]", NPCPos = CFrame.new(5810, 28, -6270), MobPos = CFrame.new(6000, 28, -6180)},
-        {MinLevel = 1250, MaxLevel = 1349, Quest = "ShipQuest1", Level = 1, Mob = "Ship Deckhand [Lv. 1250]", NPCPos = CFrame.new(1030, 125, 32900), MobPos = CFrame.new(1200, 125, 33000)},
-        {MinLevel = 1350, MaxLevel = 1424, Quest = "FrostQuest", Level = 1, Mob = "Arctic Warrior [Lv. 1350]", NPCPos = CFrame.new(5670, 28, -6480), MobPos = CFrame.new(6000, 28, -6800)},
-        {MinLevel = 1425, MaxLevel = 1499, Quest = "ForgottenQuest", Level = 1, Mob = "Sea Soldier [Lv. 1425]", NPCPos = CFrame.new(-3050, 240, -10140), MobPos = CFrame.new(-3000, 240, -9800)},
-    },
-    [3] = { -- Sea 3
-        {MinLevel = 1500, MaxLevel = 1524, Quest = "PiratePortQuest", Level = 1, Mob = "Pirate Millionaire [Lv. 1500]", NPCPos = CFrame.new(-290, 44, 5580), MobPos = CFrame.new(-370, 75, 5550)},
-        {MinLevel = 1525, MaxLevel = 1574, Quest = "PiratePortQuest", Level = 2, Mob = "Pistol Billionaire [Lv. 1525]", NPCPos = CFrame.new(-290, 44, 5580), MobPos = CFrame.new(-220, 74, 6000)},
-        {MinLevel = 1575, MaxLevel = 1699, Quest = "AmazonQuest", Level = 1, Mob = "Dragon Crew Warrior [Lv. 1575]", NPCPos = CFrame.new(5830, 52, -1100), MobPos = CFrame.new(6400, 52, -800)},
-        {MinLevel = 1700, MaxLevel = 1824, Quest = "MarineTreeQuest", Level = 1, Mob = "Marine Commodore [Lv. 1700]", NPCPos = CFrame.new(2180, 29, -6740), MobPos = CFrame.new(2400, 70, -6800)},
-        {MinLevel = 1825, MaxLevel = 1899, Quest = "DeepForestIsland1Quest", Level = 1, Mob = "Fishman Raider [Lv. 1825]", NPCPos = CFrame.new(-13270, 332, -7630), MobPos = CFrame.new(-13000, 332, -7900)},
-        {MinLevel = 1900, MaxLevel = 1974, Quest = "DeepForestIsland2Quest", Level = 1, Mob = "Jungle Pirate [Lv. 1900]", NPCPos = CFrame.new(-12680, 390, -9900), MobPos = CFrame.new(-12100, 332, -10500)},
-        {MinLevel = 1975, MaxLevel = 2074, Quest = "HauntedQuest1", Level = 1, Mob = "Reborn Skeleton [Lv. 1975]", NPCPos = CFrame.new(-9480, 142, 5520), MobPos = CFrame.new(-8800, 142, 6000)},
-        {MinLevel = 2075, MaxLevel = 2199, Quest = "PeanutQuest", Level = 1, Mob = "Peanut Scout [Lv. 2075]", NPCPos = CFrame.new(-2100, 38, -10190), MobPos = CFrame.new(-2000, 38, -10400)},
-        {MinLevel = 2200, MaxLevel = 2299, Quest = "IceCreamQuest1", Level = 1, Mob = "Ice Cream Chef [Lv. 2200]", NPCPos = CFrame.new(-750, 65, -10980), MobPos = CFrame.new(-600, 65, -11200)},
-        {MinLevel = 2300, MaxLevel = 2600, Quest = "ChocolatQuest1", Level = 1, Mob = "Cocoa Warrior [Lv. 2300]", NPCPos = CFrame.new(230, 24, -12200), MobPos = CFrame.new(350, 24, -12400)},
-    }
-}
-
--- ====================================================================
--- 8. CÁC HÀM HỖ TRỢ FARM & THAO TÁC CƠ BẢN
--- ====================================================================
-
--- Tự động cầm vũ khí đã chọn
-local function EquipWeapon()
-    local char = LocalPlayer.Character
-    if not char then return nil end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hum then return nil end
-
-    local selectedType = (Fluent.Options.SelectWeapon and Fluent.Options.SelectWeapon.Value) or "Melee"
-
-    local currentTool = char:FindFirstChildOfClass("Tool")
-    if currentTool and (currentTool.ToolTip == selectedType or (selectedType == "Melee" and currentTool.ToolTip == "Melee")) then
-        return currentTool
-    end
-
-    for _, item in ipairs(LocalPlayer.Backpack:GetChildren()) do
-        if item:IsA("Tool") then
-            if (selectedType == "Melee" and item.ToolTip == "Melee") or
-               (selectedType == "Sword" and item.ToolTip == "Sword") or
-               (selectedType == "Blox Fruit" and item.ToolTip == "Blox Fruit") then
-                hum:EquipTool(item)
-                return item
-            end
-        end
-    end
-    return currentTool
-end
-
--- Fast Attack Logic
-local function ExecuteFastAttack(targetMob)
-    pcall(function()
-        local tool = EquipWeapon()
-        if not tool then return end
-
-        tool:Activate()
-        if RegisterAttack then
-            RegisterAttack:FireServer(0)
-        end
-        if RegisterHit and targetMob and targetMob:FindFirstChild("Head") then
-            local handle = tool:FindFirstChild("Handle") or tool:FindFirstChildOfClass("Part")
-            if handle then
-                RegisterHit:FireServer(targetMob.Head, {handle})
-            end
-        end
-    end)
-end
-
--- Group / Bring Mob Engine
-local function GroupEnemies(mobName, targetCFrame)
-    if not EnemiesFolder then return end
-    for _, enemy in ipairs(EnemiesFolder:GetChildren()) do
-        if enemy.Name == mobName then
-            local eHum = enemy:FindFirstChildOfClass("Humanoid")
-            local eRoot = enemy:FindFirstChild("HumanoidRootPart")
-            if eHum and eHum.Health > 0 and eRoot then
-                if (eRoot.Position - targetCFrame.Position).Magnitude <= FarmConfig.BringMobRadius then
-                    eRoot.CFrame = targetCFrame
-                    eRoot.CanCollide = false
-                    eRoot.Size = Vector3.new(30, 30, 30)
-                    eHum.WalkSpeed = 0
-                    eHum:ChangeState(Enum.HumanoidStateType.Physics)
-                end
-            end
-        end
-    end
-end
-
--- Tự động tra cứu Quest theo Level
-local function GetCurrentQuestData()
-    local levelData = LocalPlayer:FindFirstChild("Data") and LocalPlayer.Data:FindFirstChild("Level")
-    local pLevel = levelData and levelData.Value or 1
-    local currentSeaQuests = QuestDataMatrix[currentSea] or QuestDataMatrix[1]
-
-    for _, data in ipairs(currentSeaQuests) do
-        if pLevel >= data.MinLevel and pLevel <= data.MaxLevel then
-            return data
-        end
-    end
-    return currentSeaQuests[#currentSeaQuests]
-end
-
--- Safe Tween Movement
-local currentTween = nil
-local function FarmFlyTo(targetCFrame)
-    local char, root = CharacterManager.Get()
-    if not root then return end
-
-    local distance = (root.Position - targetCFrame.Position).Magnitude
-    if distance <= 12 then
-        if currentTween then currentTween:Cancel() end
-        root.CFrame = targetCFrame
-        return
-    end
-
-    local bodyVel = root:FindFirstChild("FatCatVelocity")
-    if not bodyVel then
-        bodyVel = Instance.new("BodyVelocity")
-        bodyVel.Name = "FatCatVelocity"
-        bodyVel.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-        bodyVel.Parent = root
-    end
-    bodyVel.Velocity = Vector3.zero
-
-    local tweenInfo = TweenInfo.new(distance / FarmConfig.FlySpeed, Enum.EasingStyle.Linear)
-    currentTween = TweenService:Create(root, tweenInfo, {CFrame = targetCFrame})
-    currentTween:Play()
-end
-
-local function StopFly()
-    if currentTween then currentTween:Cancel() end
-    local char, root = CharacterManager.Get()
-    if root and root:FindFirstChild("FatCatVelocity") then
-        root.FatCatVelocity:Destroy()
-    end
-end
-
-local function HasQuest()
-    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-    local mainGui = playerGui and playerGui:FindFirstChild("Main")
-    local questFrame = mainGui and mainGui:FindFirstChild("Quest")
-    return questFrame and questFrame.Visible == true
-end
-
--- ====================================================================
--- 9. VÒNG LẶP UTILITY SẴN CÓ (ANTI-AFK, BUSO, KEN, NOCLIP)
+-- 7. CÁC HÀM HỖ TRỢ HOẠT ĐỘNG
 -- ====================================================================
 LocalPlayer.Idled:Connect(function()
     if Fluent.Options and Fluent.Options.AntiAFK and Fluent.Options.AntiAFK.Value then
@@ -314,7 +129,7 @@ LocalPlayer.Idled:Connect(function()
     end
 end)
 
--- Auto Buso
+-- Vòng lặp Auto Turn on Buso
 task.spawn(function()
     while task.wait(1) do
         pcall(function()
@@ -330,7 +145,7 @@ task.spawn(function()
     end
 end)
 
--- Auto Ken
+-- Vòng lặp Auto Turn on Ken (Haki Quan Sát)
 task.spawn(function()
     while task.wait(1) do
         pcall(function()
@@ -347,7 +162,7 @@ task.spawn(function()
     end
 end)
 
--- No Clip
+-- Vòng lặp No Clip (Xuyên Tường)
 RunService.Stepped:Connect(function()
     pcall(function()
         if Fluent.Options and Fluent.Options.Noclip and Fluent.Options.Noclip.Value then
@@ -363,156 +178,17 @@ RunService.Stepped:Connect(function()
     end)
 end)
 
--- Loop Auto Farm Level
-task.spawn(function()
-    while task.wait(0.05) do
-        pcall(function()
-            if Fluent.Options and Fluent.Options.AutoFarmLevel and Fluent.Options.AutoFarmLevel.Value then
-                local char, root, hum = CharacterManager.Get()
-                if not char or not root or hum.Health <= 0 then return end
-
-                local questData = GetCurrentQuestData()
-                if not questData then return end
-
-                if not HasQuest() then
-                    local npcDist = (root.Position - questData.NPCPos.Position).Magnitude
-                    if npcDist > 15 then
-                        FarmFlyTo(questData.NPCPos)
-                    else
-                        StopFly()
-                        if CommF then
-                            CommF:InvokeServer("StartQuest", questData.Quest, questData.Level)
-                        end
-                    end
-                else
-                    local targetMob = nil
-                    if EnemiesFolder then
-                        for _, enemy in ipairs(EnemiesFolder:GetChildren()) do
-                            if enemy.Name == questData.Mob then
-                                local eHum = enemy:FindFirstChildOfClass("Humanoid")
-                                if eHum and eHum.Health > 0 then
-                                    targetMob = enemy
-                                    break
-                                end
-                            end
-                        end
-                    end
-
-                    if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                        local mobRoot = targetMob.HumanoidRootPart
-                        local farmPos = mobRoot.CFrame * CFrame.new(0, FarmConfig.FarmDistance, 0)
-
-                        FarmFlyTo(farmPos)
-
-                        if Fluent.Options.BringMob and Fluent.Options.BringMob.Value then
-                            GroupEnemies(questData.Mob, mobRoot.CFrame)
-                        end
-
-                        if Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
-                            ExecuteFastAttack(targetMob)
-                        end
-                    else
-                        FarmFlyTo(questData.MobPos)
-                    end
-                end
-            else
-                StopFly()
-            end
-        end)
-    end
-end)
-
--- Loop Auto Stats Point
-task.spawn(function()
-    while task.wait(1) do
-        pcall(function()
-            if Fluent.Options and Fluent.Options.AutoStats and Fluent.Options.AutoStats.Value then
-                local selectedStat = Fluent.Options.SelectStat and Fluent.Options.SelectStat.Value or "Melee"
-                if CommF then
-                    CommF:InvokeServer("AddPoint", selectedStat, 3)
-                end
-            end
-        end)
-    end
-end)
-
 -- ====================================================================
--- 10. XÂY DỰNG GIAO DIỆN HỆ THỐNG (BUILD UI)
+-- 8. XÂY DỰNG GIAO DIỆN CHỨC NĂNG CHÍNH (BUILD REAL UI ELEMENTS)
 -- ====================================================================
 local function BuildUI()
-    -- TAB FARM - AUTO FARM LEVEL & STATS
-    Tabs.Farm:AddSection("Auto Farm Level Settings")
-
-    Tabs.Farm:AddDropdown("SelectWeapon", {
-        Title = "Chọn Vũ Khí Farm",
-        Values = {"Melee", "Sword", "Blox Fruit"},
-        Default = "Melee"
-    })
-
-    Tabs.Farm:AddToggle("AutoFarmLevel", {
-        Title = "Auto Farm Level",
-        Description = "Tự động nhận Quest, di chuyển và tiêu diệt Mob",
-        Default = false
-    })
-
-    Tabs.Farm:AddToggle("FastAttack", {
-        Title = "Fast Attack Mode",
-        Description = "Gửi Remote Hit để tăng tốc độ tấn công",
-        Default = true
-    })
-
-    Tabs.Farm:AddToggle("BringMob", {
-        Title = "Auto Bring Mob",
-        Description = "Gom tất cả Mob lại một điểm để quái không bị tản ra",
-        Default = true
-    })
-
-    Tabs.Farm:AddSection("Auto Stats Point")
-
-    Tabs.Farm:AddDropdown("SelectStat", {
-        Title = "Chọn Stat Cần Nâng",
-        Values = {"Melee", "Defense", "Sword", "Demon Fruit"},
-        Default = "Melee"
-    })
-
-    Tabs.Farm:AddToggle("AutoStats", {
-        Title = "Auto Add Stats",
-        Description = "Tự động cộng Stat mỗi khi lên cấp",
-        Default = false
-    })
-
-    -- TAB SETTING
-    Tabs.Setting:AddToggle("AutoBuso", {
-        Title = "Auto Turn On Buso",
-        Description = "",
-        Default = true
-    })
-
-    Tabs.Setting:AddToggle("AutoKen", {
-        Title = "Auto Turn On Ken",
-        Description = "",
-        Default = true
-    })
-
-    Tabs.Setting:AddToggle("Noclip", {
-        Title = "No Clip (Xuyên Tường)",
-        Description = "Đi xuyên qua mọi vật thể rắn và địa hình",
-        Default = true
-    })
-
-    Tabs.Setting:AddToggle("AntiAFK", {
-        Title = "Anti AFK",
-        Description = "",
-        Default = true
-    })
-
+        -- TAB SETTING
     Tabs.Setting:AddSection("Config")
-
     Tabs.Setting:AddButton({
         Title = "Reset Config",
-        Description = "Xóa tệp cấu hình đã lưu",
+        Description = "Delete saved configuration file",
         Callback = function()
-            autoSaveActive = false
+            autoSaveActive = false -- Đã truy cập đúng biến chung
             pcall(function()
                 local filePath = "FatCatHub/settings/" .. DEFAULT_CONFIG .. ".json"
                 if isfile and isfile(filePath) then
@@ -526,11 +202,32 @@ local function BuildUI()
             })
         end
     })
+    Tabs.Setting:AddToggle("AutoBuso", {
+        Title = "Auto Turn On Buso",
+        Description = "",
+        Default = True
+    })
+    Tabs.Setting:AddToggle("AutoKen", {
+        Title = "Auto Turn On Ken",
+        Description = "",
+        Default = True
+    })
+    Tabs.TeleportPvP:AddSection("PvP")
+    Tabs.TeleportPvP:AddToggle("Noclip", {
+        Title = "No Clip",
+        Description = "",
+        Default = false
+    })
+    Tabs.Setting:AddToggle("AntiAFK", {
+        Title = "Anti AFK",
+        Description = "",
+        Default = true
+    })
+    
 end
 
-
 -- ====================================================================
--- 12. QUẢN LÝ CẤU HÌNH & TỰ ĐỘNG LƯU (SAVE MANAGER & CONFIG)
+-- 9. QUẢN LÝ CẤU HÌNH & TỰ ĐỘNG LƯU (SAVE MANAGER & CONFIG)
 -- ====================================================================
 local function SetupConfigManager()
     SaveManager:SetLibrary(Fluent)
@@ -566,7 +263,7 @@ local function SetupConfigManager()
 end
 
 -- ====================================================================
--- 13. THỰC THI KHỞI CHẠY HỆ THỐNG
+-- 10. THỰC THI KHỞI CHẠY HỆ THỐNG
 -- ====================================================================
 BuildUI()
 SetupConfigManager()
