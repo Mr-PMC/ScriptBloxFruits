@@ -116,6 +116,41 @@ end
 local DEFAULT_CONFIG = "BloxFruit_" .. LocalPlayer.Name
 local autoSaveActive = true
 
+local QuestLevelData = {
+    Sea1 = {
+    
+    },
+
+    Sea2 = {
+        {MinLevel = 700,  MaxLevel = 724,  Monster = "Raider",               Quest = "Area1Quest",        QuestLevel = 1, NPCPos = CFrame.new(-427.72567749023, 72.99634552002, 1835.9426269531), MonterPos = CFrame.new(68.874565124512, 93.635643005371, 2429.6752929688)},
+        {MinLevel = 725,  MaxLevel = 774,  Monster = "Mercenary",            Quest = "Area1Quest",        QuestLevel = 2, NPCPos = CFrame.new(-427.72567749023, 72.99634552002, 1835.9426269531), MonterPos = CFrame.new(-864.85009765625, 122.47104644775, 1453.1505126953)},
+        {MinLevel = 775,  MaxLevel = 799,  Monster = "Swan Pirate",          Quest = "Area2Quest",        QuestLevel = 1, NPCPos = CFrame.new(635.61151123047, 73.096351623535, 917.81298828125), MonterPos = CFrame.new(1065.3669433594, 137.64012145996, 1324.3798828125)},
+        {MinLevel = 800,  MaxLevel = 874,  Monster = "Factory Staff",        Quest = "Area2Quest",        QuestLevel = 2, NPCPos = CFrame.new(635.61151123047, 73.096351623535, 917.81298828125), MonterPos = CFrame.new(533.22045898438, 128.46876525879, 355.62615966797)},
+        {MinLevel = 875,  MaxLevel = 899,  Monster = "Marine Lieutenant",    Quest = "MarineQuest3",      QuestLevel = 1, NPCPos = CFrame.new(-2440.9934082031, 73.04190826416, -3217.7082519531), MonterPos = CFrame.new(-2489.2622070313, 84.613594055176, -3151.8830566406)},
+        {MinLevel = 900,  MaxLevel = 949,  Monster = "Marine Captain",       Quest = "MarineQuest3",      QuestLevel = 2, NPCPos = CFrame.new(-2440.9934082031, 73.04190826416, -3217.7082519531), MonterPos = CFrame.new(-2335.2026367188, 79.786659240723, -3245.8674316406)},
+        {MinLevel = 950,  MaxLevel = 974,  Monster = "Zombie",               Quest = "ZombieQuest",       QuestLevel = 1, NPCPos = CFrame.new(-5494.3413085938, 48.505931854248, -794.59094238281), MonterPos = CFrame.new(-5536.4970703125, 101.08577728271, -835.59075927734)},
+        {MinLevel = 975,  MaxLevel = 999,  Monster = "Vampire",              Quest = "ZombieQuest",       QuestLevel = 2, NPCPos = CFrame.new(-5494.3413085938, 48.505931854248, -794.59094238281), MonterPos = CFrame.new(-5806.1098632813, 16.722528457642, -1164.4384765625)},
+        {MinLevel = 1000, MaxLevel = 1049, Monster = "Snow Trooper",         Quest = "SnowMountainQuest", QuestLevel = 1, NPCPos = CFrame.new(607.05963134766, 401.44781494141, -5370.5546875), MonterPos = CFrame.new(535.21051025391, 432.74209594727, -5484.9165039063)},
+        {MinLevel = 1050, MaxLevel = 1099, Monster = "Winter Warrior",       Quest = "SnowMountainQuest", QuestLevel = 2, NPCPos = CFrame.new(607.05963134766, 401.44781494141, -5370.5546875), MonterPos = CFrame.new(1234.4449462891, 456.95419311523, -5174.130859375)},
+        {MinLevel = 1100, MaxLevel = 1124, Monster = "Lab Subordinate",      Quest = "IceSideQuest",      QuestLevel = 1, NPCPos = CFrame.new(-6061.841796875, 15.926671981812, -4902.0385742188), MonterPos = CFrame.new(-5720.5576171875, 63.309471130371, -4784.6103515625)},
+        {MinLevel = 1125, MaxLevel = 1174, Monster = "Horned Warrior",       Quest = "IceSideQuest",      QuestLevel = 2, NPCPos = CFrame.new(-6061.841796875, 15.926671981812, -4902.0385742188), MonterPos = CFrame.new(-6292.751953125, 91.181983947754, -5502.6499023438)},
+        {MinLevel = 1175, MaxLevel = 1199, Monster = "Magma Ninja",          Quest = "FireSideQuest",     QuestLevel = 1, NPCPos = CFrame.new(-5429.0473632813, 15.977565765381, -5297.9614257813), MonterPos = CFrame.new(-5461.8388671875, 130.36347961426, -5836.4702148438)},
+        {MinLevel = 1200, MaxLevel = 1249, Monster = "Lava Pirate",          Quest = "FireSideQuest",     QuestLevel = 2, NPCPos = CFrame.new(-5429.0473632813, 15.977565765381, -5297.9614257813), MonterPos = CFrame.new(-5251.1889648438, 55.164535522461, -4774.4096679688)},
+        {MinLevel = 1250, MaxLevel = 1274, Monster = "Ship Deckhand",        Quest = "ShipQuest1",        QuestLevel = 1, NPCPos = CFrame.new(1040.2927246094, 125.08293151855, 32911.0390625), MonterPos = CFrame.new(921.12365722656, 125.9839553833, 33088.328125), Entrance = Vector3.new(923.21252441406, 126.9760055542, 32852.83203125)},
+        {MinLevel = 1275, MaxLevel = 1299, Monster = "Ship Engineer",        Quest = "ShipQuest1",        QuestLevel = 2, NPCPos = CFrame.new(1040.2927246094, 125.08293151855, 32911.0390625), MonterPos = CFrame.new(886.28179931641, 40.47790145874, 32800.83203125), Entrance = Vector3.new(923.21252441406, 126.9760055542, 32852.83203125)},
+        {MinLevel = 1300, MaxLevel = 1324, Monster = "Ship Steward",         Quest = "ShipQuest2",        QuestLevel = 1, NPCPos = CFrame.new(971.42065429688, 125.08293151855, 33245.54296875), MonterPos = CFrame.new(943.85504150391, 129.58183288574, 33444.3671875), Entrance = Vector3.new(923.21252441406, 126.9760055542, 32852.83203125)},
+        {MinLevel = 1325, MaxLevel = 1349, Monster = "Ship Officer",         Quest = "ShipQuest2",        QuestLevel = 2, NPCPos = CFrame.new(971.42065429688, 125.08293151855, 33245.54296875), MonterPos = CFrame.new(955.38458251953, 181.08335876465, 33331.890625), Entrance = Vector3.new(923.21252441406, 126.9760055542, 32852.83203125)},
+        {MinLevel = 1350, MaxLevel = 1374, Monster = "Arctic Warrior",       Quest = "FrostQuest",        QuestLevel = 1, NPCPos = CFrame.new(5668.1372070313, 28.202531814575, -6484.6005859375), MonterPos = CFrame.new(5935.4541015625, 77.26016998291, -6472.7568359375)},
+        {MinLevel = 1375, MaxLevel = 1424, Monster = "Snow Lurker",          Quest = "FrostQuest",        QuestLevel = 2, NPCPos = CFrame.new(5668.1372070313, 28.202531814575, -6484.6005859375), MonterPos = CFrame.new(5628.482421875, 57.574996948242, -6618.3481445313)},
+        {MinLevel = 1425, MaxLevel = 1449, Monster = "Sea Soldier",          Quest = "ForgottenQuest",    QuestLevel = 1, NPCPos = CFrame.new(-3054.5827636719, 236.87213134766, -10147.790039063), MonterPos = CFrame.new(-3185.0153808594, 58.789089202881, -9663.6064453125)},
+        {MinLevel = 1450, MaxLevel = 9999, Monster = "Water Fighter",        Quest = "ForgottenQuest",    QuestLevel = 2, NPCPos = CFrame.new(-3054.5827636719, 236.87213134766, -10147.790039063), MonterPos = CFrame.new(-3262.9301757813, 298.69036865234, -10552.529296875)},
+    },
+
+    Sea3 = {
+    
+    }
+}
+
 -- ====================================================================
 -- 7. CÁC HÀM HỖ TRỢ HOẠT ĐỘNG
 -- ====================================================================
