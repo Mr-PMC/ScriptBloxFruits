@@ -196,7 +196,7 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ====================================================================
--- 8. TỐI ƯU HÓA HIỆU ỨNG (FX CLEANER, FPS BOOST & SCREEN SAVER MODE)
+-- 8. TỐI ƯU HÓA HIỆU ỨNG (FX CLEANER & FPS BOOST)
 -- ====================================================================
 
 local function IsFXCleanerEnabled()
@@ -257,71 +257,6 @@ task.spawn(function()
     end
 end)
 
--- 8.5. HỆ THỐNG MÀN HÌNH ĐEN / TRẮNG & TẮT RENDER GPU (SCREEN SAVER)
-local ScreenSaverGui = Instance.new("ScreenGui")
-ScreenSaverGui.Name = "FatCat_ScreenSaver"
-ScreenSaverGui.ResetOnSpawn = false
-ScreenSaverGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenSaverGui.DisplayOrder = -999 -- Nằm bên dưới Fluent UI để luôn bấm được Menu
-
-local OverlayFrame = Instance.new("Frame")
-OverlayFrame.Size = UDim2.new(1, 0, 1, 0)
-OverlayFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-OverlayFrame.BorderSizePixel = 0
-OverlayFrame.Parent = ScreenSaverGui
-
-local InfoLabel = Instance.new("TextLabel")
-InfoLabel.Size = UDim2.new(1, 0, 0.6, 0)
-InfoLabel.Position = UDim2.new(0, 0, 0.15, 0)
-InfoLabel.BackgroundTransparency = 1
-InfoLabel.Text = "FAT CAT HUB v2.5\n\n[ GPU & BATTERY SAVER MODE ]\n\n- Đã tắt Render 3D ngầm (Tiết kiệm Pin & Giảm nhiệt GPU tối đa)\n- Bảng Menu Fluent UI vẫn khả dụng bên trên"
-InfoLabel.TextColor3 = Color3.fromRGB(0, 230, 150)
-InfoLabel.TextSize = 16
-InfoLabel.Font = Enum.Font.SourceSansBold
-InfoLabel.Parent = OverlayFrame
-
-local RestoreButton = Instance.new("TextButton")
-RestoreButton.Size = UDim2.new(0, 220, 0, 45)
-RestoreButton.Position = UDim2.new(0.5, -110, 0.75, 0)
-RestoreButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-RestoreButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-RestoreButton.Text = "Tắt Màn Hình (Khôi Phục 3D)"
-RestoreButton.Font = Enum.Font.SourceSansBold
-RestoreButton.TextSize = 14
-RestoreButton.Parent = OverlayFrame
-
-local ButtonCorner = Instance.new("UICorner")
-ButtonCorner.CornerRadius = UDim.new(0, 8)
-ButtonCorner.Parent = RestoreButton
-
-ScreenSaverGui.Parent = ParentGui
-ScreenSaverGui.Enabled = false
-
-local function ToggleSaverMode(state, theme)
-    if theme == "White" then
-        OverlayFrame.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
-        InfoLabel.TextColor3 = Color3.fromRGB(20, 20, 20)
-        RestoreButton.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-        RestoreButton.TextColor3 = Color3.fromRGB(10, 10, 10)
-    else
-        OverlayFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-        InfoLabel.TextColor3 = Color3.fromRGB(0, 230, 150)
-        RestoreButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-        RestoreButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    end
-    
-    RunService:Set3DRenderingEnabled(not state)
-    ScreenSaverGui.Enabled = state
-end
-
-RestoreButton.MouseButton1Click:Connect(function()
-    if Fluent.Options and Fluent.Options.ScreenSaverToggle then
-        Fluent.Options.ScreenSaverToggle:SetValue(false)
-    else
-        ToggleSaverMode(false)
-    end
-end)
-
 -- ====================================================================
 -- 9. FAST ATTACK ENGINE
 -- ====================================================================
@@ -353,13 +288,8 @@ end
 
 task.spawn(function()
     while true do
-        local baseDelay = 0.5
-        if Fluent.Options and Fluent.Options.FastAttackDelay then
-            baseDelay = tonumber(Fluent.Options.FastAttackDelay.Value) or 0.5
-        end
-
-        local randomJitter = (math.random(-15, 15) / 1000)
-        local actualDelay = math.max(0, baseDelay + randomJitter)
+        local randomJitter = (math.random(-10, 10) / 1000)
+        local actualDelay = math.max(0, 0.05 + randomJitter)
 
         task.wait(actualDelay)
 
@@ -419,47 +349,17 @@ local function BuildUI()
     })
     
     Tabs.Setting:AddSection("Fast Attack Engine")
-    Tabs.Setting:AddSlider("FastAttackDelay", {
-        Title = "Fast Attack Speed",
-        Description = "",
-        Default = 0.5,
-        Min = 0,
-        Max = 2,
-        Rounding = 2
-    })
-
     Tabs.Setting:AddToggle("FastAttack", {
         Title = "Fast Attack",
-        Description = "",
+        Description = "Kích hoạt đánh nhanh",
         Default = false
     })
 
-    Tabs.Setting:AddSection("Performance & Battery Saver")
+    Tabs.Setting:AddSection("Performance")
     Tabs.Setting:AddToggle("RemoveAttackFX", {
-        Title = "Remove Attack FX (FPS Boost)",
-        Description = "Tắt vệt chém, hiệu ứng nổ, số dame & rung màn hình giúp mượt game",
+        Title = "Remove Attack FX",
+        Description = "Tắt hiệu ứng khi đánh",
         Default = true
-    })
-
-    -- Chọn màu nền: Đen (OLED) hoặc Trắng (LCD)
-    Tabs.Setting:AddDropdown("SaverTheme", {
-        Title = "Saver Screen Theme",
-        Values = {"Black", "White"},
-        Default = "Black",
-    })
-
-    -- Toggle Bật/Tắt Màn hình Đen/Trắng
-    Tabs.Setting:AddToggle("ScreenSaverToggle", {
-        Title = "Screen Saver (Save Battery & GPU)",
-        Description = "Tắt Render 3D ngầm, phủ lớp màn hình Đen/Trắng giúp giảm tải GPU tối đa khi Treo AFK",
-        Default = false,
-        Callback = function(Value)
-            local theme = "Black"
-            if Fluent.Options.SaverTheme then
-                theme = Fluent.Options.SaverTheme.Value
-            end
-            ToggleSaverMode(Value, theme)
-        end
     })
 
     Tabs.Setting:AddSection("Automation & Protection")
