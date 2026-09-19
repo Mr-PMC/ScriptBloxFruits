@@ -196,7 +196,7 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ====================================================================
--- 8. TỐI ƯU HÓA HIỆU ỨNG (FX CLEANER & FPS BOOST) - FIXED VERSION
+-- 8. TỐI ƯU HÓA HIỆU ỨNG (FX CLEANER, FPS BOOST & BLACK SCREEN) - FIXED
 -- ====================================================================
 
 local function IsFXCleanerEnabled()
@@ -206,33 +206,42 @@ local function IsFXCleanerEnabled()
        and Fluent.Options.RemoveAttackFX.Value
 end
 
--- Lắng nghe trực tiếp Workspace để diệt ngay các Object hiệu ứng vừa sinh ra
-Workspace.ChildAdded:Connect(function(child)
-    if IsFXCleanerEnabled() then
-        local childName = child.Name
-        if childName == "FX" or childName == "Particle" or childName == "Particles" 
-        or childName:find("Hit") or childName:find("Slash") or childName:find("Explosion") then
-            task.defer(function()
-                if child and child.Parent then
-                    child:Destroy()
-                end
-            end)
-        end
-    end
-end)
-
-local function DisableEffectsIn(parent)
-    if not parent then return end
-    for _, obj in ipairs(parent:GetDescendants()) do
-        if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") or obj:IsA("Fire") or obj:IsA("Smoke") or obj:IsA("Sparkles") then
-            obj.Enabled = false
+-- 8.1. Tối ưu Lighting & Đồ họa môi trường
+local function OptimizeLighting()
+    Lighting.GlobalShadows = false
+    Lighting.FogEnd = 9e9
+    for _, v in ipairs(Lighting:GetChildren()) do
+        if v:IsA("PostEffect") or v:IsA("Atmosphere") then
+            v.Enabled = false
         end
     end
 end
 
--- Vòng lặp dọn dẹp FX ngầm, Tắt Rung màn hình & Xóa số Sát thương (Damage Text)
+-- 8.2. Hàm vô hiệu hóa render hiệu ứng (Tắt thay vì Xóa để tránh giật lag)
+local function DisableFX(v)
+    if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
+        v.Enabled = false
+    elseif v:IsA("Decal") or v:IsA("Texture") then
+        v.Texture = ""
+    end
+end
+
+-- 8.3. Bắt sự kiện tạo Object mới trong Workspace (Tắt FX & Số sát thương ngay lập tức)
+Workspace.DescendantAdded:Connect(function(v)
+    if IsFXCleanerEnabled() then
+        DisableFX(v)
+        
+        -- Dọn dẹp số Sát thương (Damage Text BillboardGui)
+        if v:IsA("BillboardGui") and (v.Name == "Damage" or v.Name:find("Damage") or v.Name == "DamageCounter") then
+            v.Enabled = false
+        end
+    end
+end)
+
+-- 8.4. Vòng lặp dọn dẹp thư mục FX & Camera ngầm (1 giây / lần)
 task.spawn(function()
-    while task.wait(0.3) do
+    OptimizeLighting()
+    while task.wait(1) do
         if IsFXCleanerEnabled() then
             pcall(function()
                 local fxFolder = Workspace:FindFirstChild("FX")
@@ -240,33 +249,44 @@ task.spawn(function()
                     fxFolder:ClearAllChildren()
                 end
 
-                local char = LocalPlayer.Character
-                if char then
-                    DisableEffectsIn(char)
-                end
-
-                DisableEffectsIn(Camera)
-
-                local cameraShaker = ReplicatedStorage:FindFirstChild("Util") and ReplicatedStorage.Util:FindFirstChild("CameraShaker")
-                if cameraShaker then
-                    local shakerModule = require(cameraShaker)
-                    if shakerModule and shakerModule.Stop then
-                        shakerModule:Stop()
-                    end
-                end
-
-                local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-                if playerGui then
-                    for _, gui in ipairs(playerGui:GetChildren()) do
-                        if gui.Name == "Damage" or gui.Name:find("Damage") or gui.Name == "DamageCounter" then
-                            gui:Destroy()
-                        end
+                for _, v in ipairs(Camera:GetChildren()) do
+                    if v:IsA("Model") or v:IsA("Part") then
+                        DisableFX(v)
                     end
                 end
             end)
         end
     end
 end)
+
+-- 8.5. HỆ THỐNG MÀN HÌNH ĐEN / TIẾT KIỆM PIN & TẮT RENDER GPU (BLACK SCREEN MODE)
+local BlackScreenGui = Instance.new("ScreenGui")
+BlackScreenGui.Name = "FatCat_BlackScreen"
+BlackScreenGui.ResetOnSpawn = false
+BlackScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local BlackFrame = Instance.new("Frame")
+BlackFrame.Size = UDim2.new(1, 0, 1, 0)
+BlackFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+BlackFrame.BorderSizePixel = 0
+BlackFrame.Parent = BlackScreenGui
+
+local InfoLabel = Instance.new("TextLabel")
+InfoLabel.Size = UDim2.new(1, 0, 1, 0)
+InfoLabel.BackgroundTransparency = 1
+InfoLabel.Text = "FAT CAT HUB v2.5\n\n[ BLACK SCREEN / GPU SAVER MODE ON ]\nĐã tắt Render 3D ngầm - Đang tiết kiệm Pin & GPU tối đa..."
+InfoLabel.TextColor3 = Color3.fromRGB(0, 230, 150)
+InfoLabel.TextSize = 16
+InfoLabel.Font = Enum.Font.SourceSansBold
+InfoLabel.Parent = BlackFrame
+
+BlackScreenGui.Parent = ParentGui
+BlackScreenGui.Enabled = false
+
+local function ToggleBlackScreen(state)
+    RunService:Set3DRenderingEnabled(not state)
+    BlackScreenGui.Enabled = state
+end
 
 -- ====================================================================
 -- 9. FAST ATTACK ENGINE
@@ -384,11 +404,22 @@ local function BuildUI()
         Default = false
     })
 
+    Tabs.Setting:AddSection("Performance & Battery Saver")
     -- Nút bật tắt chế độ Xóa hiệu ứng / Giảm Lag
     Tabs.Setting:AddToggle("RemoveAttackFX", {
         Title = "Remove Attack FX (FPS Boost)",
-        Description = "Xóa vệt chém, hiệu ứng nổ, số dame & vô hiệu hóa rung màn hình giúp mượt game",
+        Description = "Tắt vệt chém, hiệu ứng nổ, số dame & rung màn hình giúp mượt game",
         Default = true
+    })
+
+    -- Nút bật tắt Chế độ Màn hình Đen Tiết kiệm Pin
+    Tabs.Setting:AddToggle("BlackScreenMode", {
+        Title = "Black Screen (Save Battery)",
+        Description = "Tắt Render 3D ngầm, phủ màn hình đen giúp tiết kiệm Pin & GPU tối đa khi Treo AFK",
+        Default = false,
+        Callback = function(Value)
+            ToggleBlackScreen(Value)
+        end
     })
 
     Tabs.Setting:AddSection("Automation & Protection")
