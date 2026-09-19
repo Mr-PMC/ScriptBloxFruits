@@ -232,7 +232,7 @@ task.spawn(function()
         end
 
         -- Tạo biến thiên ngẫu nhiên rất nhỏ (từ -0.015s đến +0.015s) sát với số được set để qua mặt Anti-Cheat
-        local randomJitter = (math.random(-15, 15) / 1000)
+        local randomJitter = (math.random() * 0.00000002) - 0.00000001
         local actualDelay = math.max(0, baseDelay + randomJitter)
 
         task.wait(actualDelay)
@@ -241,10 +241,10 @@ task.spawn(function()
             if Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
                 local char, root, hum = CharacterManager.Get()
                 if not char or not hum or hum.Health <= 0 then return end
-
+                -- KIỂM TRA: Phải có vũ khí đang cầm trên tay
                 local tool = char:FindFirstChildOfClass("Tool")
                 if not tool then return end
-
+                -- KIỂM TRA : Phải có quái trong tầm 60 Studs
                 local targets = GetFastAttackTargets()
                 if #targets > 0 then
                     if RegisterAttack and RegisterHit then
