@@ -358,7 +358,7 @@ local function BuildUI()
     Tabs.Setting:AddSection("Performance")
     Tabs.Setting:AddToggle("RemoveAttackFX", {
         Title = "Remove Attack FX (FPS Boost)",
-        Description = "Tắt vệt chém, hiệu ứng nổ, số dame & rung màn hình giúp mượt game",
+        Description = "Tắt vệt chém, hiệu ứng nổ, số dame & rung màn hình",
         Default = true
     })
 
