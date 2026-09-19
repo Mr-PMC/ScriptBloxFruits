@@ -263,10 +263,10 @@ task.spawn(function()
 end)
 
 -- ====================================================================
--- 9. FAST ATTACK ENGINE (FIX CHUẨN BASEPART & PAIRING ATTACK/HIT)
+-- 9. FAST ATTACK ENGINE (FIX ĐÁNH NHIỀU QUÁI - AOE FAST ATTACK)
 -- ====================================================================
 local ATTACK_RADIUS = 60
-local MAX_TARGETS_PER_TICK = 8
+local MAX_TARGETS_PER_TICK = 10
 
 local function GetFastAttackTargets()
     local targets = {}
@@ -285,7 +285,6 @@ local function GetFastAttackTargets()
             if enemyRoot and enemyHum and enemyHum.Health > 0 then
                 local dist = (enemyRoot.Position - myPos).Magnitude
                 if dist <= ATTACK_RADIUS then
-                    -- Lưu trực tiếp BasePart Instance, không dùng mảng lồng nhau
                     table.insert(targets, enemyRoot)
                     if #targets >= MAX_TARGETS_PER_TICK then
                         break
@@ -316,20 +315,10 @@ task.spawn(function()
                 if not GetNetModule() then return end
 
                 local targets = GetFastAttackTargets()
-                local totalTargets = #targets
-
-                if totalTargets > 0 then
-                    -- Tách danh sách thành các nhóm 2 BasePart
-                    for i = 1, totalTargets, 2 do
-                        local hitList = { targets[i] }
-                        if targets[i + 1] then
-                            table.insert(hitList, targets[i + 1])
-                        end
-
-                        -- Với mỗi cặp 2 con: gửi 1 lượt vung + 1 lượt gây sát thương
-                        RegisterAttack:FireServer(0)
-                        RegisterHit:FireServer(hitList[1], hitList)
-                    end
+                if #targets > 0 then
+                    -- Gửi toàn bộ danh sách quái trong 1 lần Remote duy nhất để đánh lan
+                    RegisterAttack:FireServer(0)
+                    RegisterHit:FireServer(targets[1], targets)
                 end
             end
         end)
