@@ -222,18 +222,11 @@ local function GetFastAttackTargets()
     return targets
 end
 
--- Vòng lặp Fast Attack với Delay linh hoạt & Random Jitter né Anti-Cheat
+-- Vòng lặp Fast Attack với Delay ngẫu nhiên tự động (Khoảng từ 0.01s đến 0.5s - Đuôi số thập phân dài né Anti-Cheat)
 task.spawn(function()
     while true do
-        -- Lấy giá trị thời gian nghỉ từ ô nhập UI (Mặc định 0.5s)
-        local baseDelay = 0.5
-        if Fluent.Options and Fluent.Options.FastAttackDelay then
-            baseDelay = tonumber(Fluent.Options.FastAttackDelay.Value) or 0.5
-        end
-
-        -- Tạo biến thiên ngẫu nhiên rất nhỏ (từ -0.015s đến +0.015s) sát với số được set để qua mặt Anti-Cheat
-        local randomJitter = (math.random() * 0.00000002) - 0.00000001
-        local actualDelay = math.max(0, baseDelay + randomJitter)
+        -- Tạo số thập phân ngẫu nhiên dài thòng trong khoảng [0.01, 0.5]
+        local actualDelay = math.clamp(math.random() * 0.5, 0.01, 0.5)
 
         task.wait(actualDelay)
 
@@ -272,7 +265,7 @@ local function BuildUI()
     })
     
     -- TAB SETTING
-        Tabs.Setting:AddSection("Config File")
+    Tabs.Setting:AddSection("Config File")
     Tabs.Setting:AddButton({
         Title = "Reset Config",
         Description = "Xóa tệp cấu hình đã lưu",
@@ -293,20 +286,11 @@ local function BuildUI()
     })
     
     Tabs.Setting:AddSection("Fast Attack Engine")
-    -- Ô nhập/chỉnh tốc độ đánh (Delay)
-    Tabs.Setting:AddSlider("FastAttackDelay", {
-        Title = "Fast Attack Speed",
-        Description = "",
-        Default = 0.5,
-        Min = 0,
-        Max = 2,
-        Rounding = 2
-    })
 
-    -- Nút bật tắt chế độ Fast Attack
+    -- Nút bật tắt chế độ Fast Attack (Đã loại bỏ ô chỉnh Speed)
     Tabs.Setting:AddToggle("FastAttack", {
         Title = "Fast Attack",
-        Description = "",
+        Description = "Tự động đánh nhanh (Random Delay 0.01s - 0.5s)",
         Default = false
     })
 
