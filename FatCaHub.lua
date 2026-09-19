@@ -263,10 +263,9 @@ task.spawn(function()
 end)
 
 -- ====================================================================
--- 9. FAST ATTACK ENGINE (FIX ĐÁNH NHIỀU QUÁI - AOE FAST ATTACK)
+-- 9. FAST ATTACK ENGINE (TARGET BATCHING CHUẨN HUB LỚN)
 -- ====================================================================
 local ATTACK_RADIUS = 60
-local MAX_TARGETS_PER_TICK = 10
 
 local function GetFastAttackTargets()
     local targets = {}
@@ -285,10 +284,8 @@ local function GetFastAttackTargets()
             if enemyRoot and enemyHum and enemyHum.Health > 0 then
                 local dist = (enemyRoot.Position - myPos).Magnitude
                 if dist <= ATTACK_RADIUS then
-                    table.insert(targets, enemyRoot)
-                    if #targets >= MAX_TARGETS_PER_TICK then
-                        break
-                    end
+                    -- Cấu trúc chuẩn của Blox Fruits Batch: {Model, TargetPart}
+                    table.insert(targets, {enemy, enemyRoot})
                 end
             end
         end
@@ -299,6 +296,7 @@ end
 
 task.spawn(function()
     while true do
+        -- Tần số gửi gói tin tối ưu (tránh bị Kick/Rate-Limit)
         local randomJitter = (math.random(-5, 5) / 1000)
         local actualDelay = math.max(0, 0.015 + randomJitter)
 
@@ -309,16 +307,19 @@ task.spawn(function()
                 local char, root, hum = CharacterManager.Get()
                 if not char or not hum or hum.Health <= 0 then return end
 
+                -- Bắt buộc phải cầm vũ khí trên tay
                 local tool = char:FindFirstChildOfClass("Tool")
                 if not tool then return end
 
+                -- Kiểm tra Net Module
                 if not GetNetModule() then return end
 
                 local targets = GetFastAttackTargets()
                 if #targets > 0 then
-                    -- Gửi toàn bộ danh sách quái trong 1 lần Remote duy nhất để đánh lan
+                    -- Gửi Vung Vũ Khí (0s Cooldown)
                     RegisterAttack:FireServer(0)
-                    RegisterHit:FireServer(targets[1], targets)
+                    -- Gửi Hit Batch trúng toàn bộ mục tiêu trong tầm đánh cùng 1 lúc
+                    RegisterHit:FireServer(targets[1][2], targets)
                 end
             end
         end)
