@@ -196,7 +196,7 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ====================================================================
--- 8. TỐI ƯU HÓA HIỆU ỨNG (FX CLEANER, FPS BOOST & BLACK SCREEN) - FIXED
+-- 8. TỐI ƯU HÓA HIỆU ỨNG (FX CLEANER, FPS BOOST & SCREEN SAVER MODE)
 -- ====================================================================
 
 local function IsFXCleanerEnabled()
@@ -206,7 +206,7 @@ local function IsFXCleanerEnabled()
        and Fluent.Options.RemoveAttackFX.Value
 end
 
--- 8.1. Tối ưu Lighting & Đồ họa môi trường
+-- 8.1. Tối ưu Lighting & Môi trường
 local function OptimizeLighting()
     Lighting.GlobalShadows = false
     Lighting.FogEnd = 9e9
@@ -217,7 +217,7 @@ local function OptimizeLighting()
     end
 end
 
--- 8.2. Hàm vô hiệu hóa render hiệu ứng (Tắt thay vì Xóa để tránh giật lag)
+-- 8.2. Hàm vô hiệu hóa render hiệu ứng
 local function DisableFX(v)
     if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
         v.Enabled = false
@@ -226,19 +226,17 @@ local function DisableFX(v)
     end
 end
 
--- 8.3. Bắt sự kiện tạo Object mới trong Workspace (Tắt FX & Số sát thương ngay lập tức)
+-- 8.3. Bắt sự kiện tạo Object mới trong Workspace
 Workspace.DescendantAdded:Connect(function(v)
     if IsFXCleanerEnabled() then
         DisableFX(v)
-        
-        -- Dọn dẹp số Sát thương (Damage Text BillboardGui)
         if v:IsA("BillboardGui") and (v.Name == "Damage" or v.Name:find("Damage") or v.Name == "DamageCounter") then
             v.Enabled = false
         end
     end
 end)
 
--- 8.4. Vòng lặp dọn dẹp thư mục FX & Camera ngầm (1 giây / lần)
+-- 8.4. Vòng lặp dọn dẹp FX ngầm
 task.spawn(function()
     OptimizeLighting()
     while task.wait(1) do
@@ -259,41 +257,76 @@ task.spawn(function()
     end
 end)
 
--- 8.5. HỆ THỐNG MÀN HÌNH ĐEN / TIẾT KIỆM PIN & TẮT RENDER GPU (BLACK SCREEN MODE)
-local BlackScreenGui = Instance.new("ScreenGui")
-BlackScreenGui.Name = "FatCat_BlackScreen"
-BlackScreenGui.ResetOnSpawn = false
-BlackScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+-- 8.5. HỆ THỐNG MÀN HÌNH ĐEN / TRẮNG & TẮT RENDER GPU (SCREEN SAVER)
+local ScreenSaverGui = Instance.new("ScreenGui")
+ScreenSaverGui.Name = "FatCat_ScreenSaver"
+ScreenSaverGui.ResetOnSpawn = false
+ScreenSaverGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenSaverGui.DisplayOrder = -999 -- Nằm bên dưới Fluent UI để luôn bấm được Menu
 
-local BlackFrame = Instance.new("Frame")
-BlackFrame.Size = UDim2.new(1, 0, 1, 0)
-BlackFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
-BlackFrame.BorderSizePixel = 0
-BlackFrame.Parent = BlackScreenGui
+local OverlayFrame = Instance.new("Frame")
+OverlayFrame.Size = UDim2.new(1, 0, 1, 0)
+OverlayFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+OverlayFrame.BorderSizePixel = 0
+OverlayFrame.Parent = ScreenSaverGui
 
 local InfoLabel = Instance.new("TextLabel")
-InfoLabel.Size = UDim2.new(1, 0, 1, 0)
+InfoLabel.Size = UDim2.new(1, 0, 0.6, 0)
+InfoLabel.Position = UDim2.new(0, 0, 0.15, 0)
 InfoLabel.BackgroundTransparency = 1
-InfoLabel.Text = "FAT CAT HUB v2.5\n\n[ BLACK SCREEN / GPU SAVER MODE ON ]\nĐã tắt Render 3D ngầm - Đang tiết kiệm Pin & GPU tối đa..."
+InfoLabel.Text = "FAT CAT HUB v2.5\n\n[ GPU & BATTERY SAVER MODE ]\n\n- Đã tắt Render 3D ngầm (Tiết kiệm Pin & Giảm nhiệt GPU tối đa)\n- Bảng Menu Fluent UI vẫn khả dụng bên trên"
 InfoLabel.TextColor3 = Color3.fromRGB(0, 230, 150)
 InfoLabel.TextSize = 16
 InfoLabel.Font = Enum.Font.SourceSansBold
-InfoLabel.Parent = BlackFrame
+InfoLabel.Parent = OverlayFrame
 
-BlackScreenGui.Parent = ParentGui
-BlackScreenGui.Enabled = false
+local RestoreButton = Instance.new("TextButton")
+RestoreButton.Size = UDim2.new(0, 220, 0, 45)
+RestoreButton.Position = UDim2.new(0.5, -110, 0.75, 0)
+RestoreButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+RestoreButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+RestoreButton.Text = "Tắt Màn Hình (Khôi Phục 3D)"
+RestoreButton.Font = Enum.Font.SourceSansBold
+RestoreButton.TextSize = 14
+RestoreButton.Parent = OverlayFrame
 
-local function ToggleBlackScreen(state)
+local ButtonCorner = Instance.new("UICorner")
+ButtonCorner.CornerRadius = UDim.new(0, 8)
+ButtonCorner.Parent = RestoreButton
+
+ScreenSaverGui.Parent = ParentGui
+ScreenSaverGui.Enabled = false
+
+local function ToggleSaverMode(state, theme)
+    if theme == "White" then
+        OverlayFrame.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
+        InfoLabel.TextColor3 = Color3.fromRGB(20, 20, 20)
+        RestoreButton.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+        RestoreButton.TextColor3 = Color3.fromRGB(10, 10, 10)
+    else
+        OverlayFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+        InfoLabel.TextColor3 = Color3.fromRGB(0, 230, 150)
+        RestoreButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        RestoreButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    end
+    
     RunService:Set3DRenderingEnabled(not state)
-    BlackScreenGui.Enabled = state
+    ScreenSaverGui.Enabled = state
 end
+
+RestoreButton.MouseButton1Click:Connect(function()
+    if Fluent.Options and Fluent.Options.ScreenSaverToggle then
+        Fluent.Options.ScreenSaverToggle:SetValue(false)
+    else
+        ToggleSaverMode(false)
+    end
+end)
 
 -- ====================================================================
 -- 9. FAST ATTACK ENGINE
 -- ====================================================================
-local ATTACK_RADIUS = 60 -- Mặc định cố định 60 Studs (Tầm đánh tối đa server chấp nhận)
+local ATTACK_RADIUS = 60
 
--- Hàm quét danh sách mục tiêu trong phạm vi 60 studs cố định
 local function GetFastAttackTargets()
     local targets = {}
     local char, root, hum = CharacterManager.Get()
@@ -318,7 +351,6 @@ local function GetFastAttackTargets()
     return targets
 end
 
--- Vòng lặp Fast Attack với Delay linh hoạt & Random Jitter né Anti-Cheat
 task.spawn(function()
     while true do
         local baseDelay = 0.5
@@ -387,7 +419,6 @@ local function BuildUI()
     })
     
     Tabs.Setting:AddSection("Fast Attack Engine")
-    -- Ô nhập/chỉnh tốc độ đánh (Delay)
     Tabs.Setting:AddSlider("FastAttackDelay", {
         Title = "Fast Attack Speed",
         Description = "",
@@ -397,7 +428,6 @@ local function BuildUI()
         Rounding = 2
     })
 
-    -- Nút bật tắt chế độ Fast Attack
     Tabs.Setting:AddToggle("FastAttack", {
         Title = "Fast Attack",
         Description = "",
@@ -405,25 +435,34 @@ local function BuildUI()
     })
 
     Tabs.Setting:AddSection("Performance & Battery Saver")
-    -- Nút bật tắt chế độ Xóa hiệu ứng / Giảm Lag
     Tabs.Setting:AddToggle("RemoveAttackFX", {
         Title = "Remove Attack FX (FPS Boost)",
         Description = "Tắt vệt chém, hiệu ứng nổ, số dame & rung màn hình giúp mượt game",
         Default = true
     })
 
-    -- Nút bật tắt Chế độ Màn hình Đen Tiết kiệm Pin
-    Tabs.Setting:AddToggle("BlackScreenMode", {
-        Title = "Black Screen (Save Battery)",
-        Description = "Tắt Render 3D ngầm, phủ màn hình đen giúp tiết kiệm Pin & GPU tối đa khi Treo AFK",
+    -- Chọn màu nền: Đen (OLED) hoặc Trắng (LCD)
+    Tabs.Setting:AddDropdown("SaverTheme", {
+        Title = "Saver Screen Theme",
+        Values = {"Black", "White"},
+        Default = "Black",
+    })
+
+    -- Toggle Bật/Tắt Màn hình Đen/Trắng
+    Tabs.Setting:AddToggle("ScreenSaverToggle", {
+        Title = "Screen Saver (Save Battery & GPU)",
+        Description = "Tắt Render 3D ngầm, phủ lớp màn hình Đen/Trắng giúp giảm tải GPU tối đa khi Treo AFK",
         Default = false,
         Callback = function(Value)
-            ToggleBlackScreen(Value)
+            local theme = "Black"
+            if Fluent.Options.SaverTheme then
+                theme = Fluent.Options.SaverTheme.Value
+            end
+            ToggleSaverMode(Value, theme)
         end
     })
 
     Tabs.Setting:AddSection("Automation & Protection")
-    
     Tabs.Setting:AddToggle("AutoBuso", {
         Title = "Auto Turn On Buso",
         Description = "Tự động bật Haki Vũ Trang",
@@ -441,7 +480,6 @@ local function BuildUI()
         Description = "Chống bị văng game khi treo máy",
         Default = true
     })
-    
 end
 
 -- ====================================================================
