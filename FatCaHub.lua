@@ -134,7 +134,7 @@ local DEFAULT_CONFIG = "BloxFruit_" .. LocalPlayer.Name
 local autoSaveActive = true
 
 -- ====================================================================
--- 7. CÁC HÀM HOẠT ĐỘNG CHÍNH & AUTOMATION
+-- 7. CÁC HÀM HOẠT ĐỘNG CHÍNH
 -- ====================================================================
 LocalPlayer.Idled:Connect(function()
     if Fluent.Options and Fluent.Options.AntiAFK and Fluent.Options.AntiAFK.Value then
@@ -196,54 +196,75 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ====================================================================
--- 8. TỐI ƯU HÓA HIỆU ỨNG (FX CLEANER & FPS BOOST)
+-- 8. TỐI ƯU HÓA HIỆU ỨNG (FX CLEANER & FPS BOOST) - FIXED VERSION
 -- ====================================================================
-local FXFolder = Workspace:FindFirstChild("FX")
 
--- Xóa tức thì các Particle / Vệt chém vừa được tạo ra trong Workspace.FX
-if FXFolder then
-    FXFolder.ChildAdded:Connect(function(child)
-        if Fluent.Options and Fluent.Options.RemoveAttackFX and Fluent.Options.RemoveAttackFX.Value then
+local function IsFXCleanerEnabled()
+    return Fluent 
+       and Fluent.Options 
+       and Fluent.Options.RemoveAttackFX 
+       and Fluent.Options.RemoveAttackFX.Value
+end
+
+-- Lắng nghe trực tiếp Workspace để diệt ngay các Object hiệu ứng vừa sinh ra
+Workspace.ChildAdded:Connect(function(child)
+    if IsFXCleanerEnabled() then
+        local childName = child.Name
+        if childName == "FX" or childName == "Particle" or childName == "Particles" 
+        or childName:find("Hit") or childName:find("Slash") or childName:find("Explosion") then
             task.defer(function()
                 if child and child.Parent then
                     child:Destroy()
                 end
             end)
         end
-    end)
-end
+    end
+end)
 
--- Hàm tắt Trail/Particle trên nhân vật và vũ khí
-local function CleanCharacterFX(char)
-    if not char then return end
-    for _, obj in ipairs(char:GetDescendants()) do
-        if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") or obj:IsA("Smoke") or obj:IsA("Fire") then
+local function DisableEffectsIn(parent)
+    if not parent then return end
+    for _, obj in ipairs(parent:GetDescendants()) do
+        if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") or obj:IsA("Fire") or obj:IsA("Smoke") or obj:IsA("Sparkles") then
             obj.Enabled = false
         end
     end
 end
 
--- Vòng lặp dọn dẹp FX ngầm & Tắt Camera Shake
+-- Vòng lặp dọn dẹp FX ngầm, Tắt Rung màn hình & Xóa số Sát thương (Damage Text)
 task.spawn(function()
-    while task.wait(0.5) do
-        pcall(function()
-            if Fluent.Options and Fluent.Options.RemoveAttackFX and Fluent.Options.RemoveAttackFX.Value then
-                -- Tắt rung màn hình khi Fast Attack
-                local CameraShaker = ReplicatedStorage:FindFirstChild("Util") and ReplicatedStorage.Util:FindFirstChild("CameraShaker")
-                if CameraShaker then
-                    local shakerModule = require(CameraShaker)
+    while task.wait(0.3) do
+        if IsFXCleanerEnabled() then
+            pcall(function()
+                local fxFolder = Workspace:FindFirstChild("FX")
+                if fxFolder then
+                    fxFolder:ClearAllChildren()
+                end
+
+                local char = LocalPlayer.Character
+                if char then
+                    DisableEffectsIn(char)
+                end
+
+                DisableEffectsIn(Camera)
+
+                local cameraShaker = ReplicatedStorage:FindFirstChild("Util") and ReplicatedStorage.Util:FindFirstChild("CameraShaker")
+                if cameraShaker then
+                    local shakerModule = require(cameraShaker)
                     if shakerModule and shakerModule.Stop then
                         shakerModule:Stop()
                     end
                 end
 
-                -- Dọn Particle dư thừa trên nhân vật
-                local char = LocalPlayer.Character
-                if char then
-                    CleanCharacterFX(char)
+                local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+                if playerGui then
+                    for _, gui in ipairs(playerGui:GetChildren()) do
+                        if gui.Name == "Damage" or gui.Name:find("Damage") or gui.Name == "DamageCounter" then
+                            gui:Destroy()
+                        end
+                    end
                 end
-            end
-        end)
+            end)
+        end
     end
 end)
 
@@ -277,10 +298,16 @@ local function GetFastAttackTargets()
     return targets
 end
 
--- Vòng lặp Fast Attack với Delay ngẫu nhiên tự động (Khoảng từ 0.01s đến 0.5s)
+-- Vòng lặp Fast Attack với Delay linh hoạt & Random Jitter né Anti-Cheat
 task.spawn(function()
     while true do
-        local actualDelay = math.clamp(math.random() * 0.5, 0.01, 0.5)
+        local baseDelay = 0.5
+        if Fluent.Options and Fluent.Options.FastAttackDelay then
+            baseDelay = tonumber(Fluent.Options.FastAttackDelay.Value) or 0.5
+        end
+
+        local randomJitter = (math.random(-15, 15) / 1000)
+        local actualDelay = math.max(0, baseDelay + randomJitter)
 
         task.wait(actualDelay)
 
@@ -288,12 +315,10 @@ task.spawn(function()
             if Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
                 local char, root, hum = CharacterManager.Get()
                 if not char or not hum or hum.Health <= 0 then return end
-                
-                -- KIỂM TRA: Phải có vũ khí đang cầm trên tay
+
                 local tool = char:FindFirstChildOfClass("Tool")
                 if not tool then return end
-                
-                -- KIỂM TRA: Phải có quái trong tầm 60 Studs
+
                 local targets = GetFastAttackTargets()
                 if #targets > 0 then
                     if RegisterAttack and RegisterHit then
@@ -342,18 +367,27 @@ local function BuildUI()
     })
     
     Tabs.Setting:AddSection("Fast Attack Engine")
+    -- Ô nhập/chỉnh tốc độ đánh (Delay)
+    Tabs.Setting:AddSlider("FastAttackDelay", {
+        Title = "Fast Attack Speed",
+        Description = "",
+        Default = 0.5,
+        Min = 0,
+        Max = 2,
+        Rounding = 2
+    })
 
     -- Nút bật tắt chế độ Fast Attack
     Tabs.Setting:AddToggle("FastAttack", {
         Title = "Fast Attack",
-        Description = "Tự động đánh nhanh (Random Delay 0.01s - 0.5s)",
+        Description = "",
         Default = false
     })
 
     -- Nút bật tắt chế độ Xóa hiệu ứng / Giảm Lag
     Tabs.Setting:AddToggle("RemoveAttackFX", {
         Title = "Remove Attack FX (FPS Boost)",
-        Description = "Xóa vệt chém, hiệu ứng nổ & vô hiệu hóa rung màn hình giúp mượt game",
+        Description = "Xóa vệt chém, hiệu ứng nổ, số dame & vô hiệu hóa rung màn hình giúp mượt game",
         Default = true
     })
 
