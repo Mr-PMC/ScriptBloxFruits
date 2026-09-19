@@ -263,10 +263,10 @@ task.spawn(function()
 end)
 
 -- ====================================================================
--- 9. FAST ATTACK ENGINE (CHIA NHÓM TARGET CHUNKING - ĐÁNH TỐI ĐA 8 CON/TICK)
+-- 9. FAST ATTACK ENGINE (FIX CHUẨN BASEPART & PAIRING ATTACK/HIT)
 -- ====================================================================
 local ATTACK_RADIUS = 60
-local MAX_TARGETS_PER_TICK = 8 -- Giới hạn tối đa 8 con cùng lúc để tránh rủi ro văng game / kick Remote
+local MAX_TARGETS_PER_TICK = 8
 
 local function GetFastAttackTargets()
     local targets = {}
@@ -285,8 +285,8 @@ local function GetFastAttackTargets()
             if enemyRoot and enemyHum and enemyHum.Health > 0 then
                 local dist = (enemyRoot.Position - myPos).Magnitude
                 if dist <= ATTACK_RADIUS then
-                    table.insert(targets, {enemy, enemyRoot})
-                    -- Đạt ngưỡng 8 con thì dừng quét để tối ưu
+                    -- Lưu trực tiếp BasePart Instance, không dùng mảng lồng nhau
+                    table.insert(targets, enemyRoot)
                     if #targets >= MAX_TARGETS_PER_TICK then
                         break
                     end
@@ -319,18 +319,16 @@ task.spawn(function()
                 local totalTargets = #targets
 
                 if totalTargets > 0 then
-                    -- 1. Gửi vung vũ khí
-                    RegisterAttack:FireServer(0)
-
-                    -- 2. Tách danh sách thành các nhóm 2 con (Gửi tối đa 4 nhóm = 8 con trong 1 tick)
+                    -- Tách danh sách thành các nhóm 2 BasePart
                     for i = 1, totalTargets, 2 do
-                        local chunk = { targets[i] }
+                        local hitList = { targets[i] }
                         if targets[i + 1] then
-                            table.insert(chunk, targets[i + 1])
+                            table.insert(hitList, targets[i + 1])
                         end
 
-                        -- Gửi gói sát thương riêng cho từng cặp
-                        RegisterHit:FireServer(chunk[1][2], chunk)
+                        -- Với mỗi cặp 2 con: gửi 1 lượt vung + 1 lượt gây sát thương
+                        RegisterAttack:FireServer(0)
+                        RegisterHit:FireServer(hitList[1], hitList)
                     end
                 end
             end
