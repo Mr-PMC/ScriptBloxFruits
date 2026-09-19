@@ -196,13 +196,10 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ====================================================================
--- 8. PHÂN HỆ FAST ATTACK & HITBOX EXPANDER
+-- 8. PHÂN HỆ FAST ATTACK ENGINE
 -- ====================================================================
-local FastAttackConfig = {
-    Radius = 60 -- Tầm đánh tối đa chuẩn 60 Studs
-}
 
--- Hàm quét danh sách mục tiêu trong phạm vi 60 studs
+-- Hàm quét danh sách mục tiêu theo bán kính động (10 đến 100 studs)
 local function GetFastAttackTargets(radius)
     local targets = {}
     local char, root, hum = CharacterManager.Get()
@@ -236,6 +233,12 @@ task.spawn(function()
             baseDelay = tonumber(Fluent.Options.FastAttackDelay.Value) or 0.5
         end
 
+        -- Lấy bán kính/tầm đánh từ UI (Nhỏ nhất 10 studs, lớn nhất 100 studs)
+        local attackRadius = 60
+        if Fluent.Options and Fluent.Options.FastAttackRadius then
+            attackRadius = tonumber(Fluent.Options.FastAttackRadius.Value) or 60
+        end
+
         -- Tạo biến thiên ngẫu nhiên rất nhỏ (từ -0.015s đến +0.015s) sát với số được set để qua mặt Anti-Cheat
         local randomJitter = (math.random(-15, 15) / 1000)
         local actualDelay = math.max(0, baseDelay + randomJitter)
@@ -250,33 +253,13 @@ task.spawn(function()
                 local tool = char:FindFirstChildOfClass("Tool")
                 if not tool then return end
 
-                local targets = GetFastAttackTargets(FastAttackConfig.Radius)
+                local targets = GetFastAttackTargets(attackRadius)
                 if #targets > 0 then
                     if RegisterAttack and RegisterHit then
                         task.spawn(function()
                             RegisterAttack:FireServer(0)
                             RegisterHit:FireServer(targets[1][2], targets)
                         end)
-                    end
-                end
-            end
-        end)
-    end
-end)
-
--- Vòng lặp Mở Rộng Hitbox Quái (Luôn Bật Ngầm)
-task.spawn(function()
-    while task.wait(0.5) do
-        pcall(function()
-            local sizeValue = (Fluent.Options and Fluent.Options.HitboxSize and Fluent.Options.HitboxSize.Value) or 15
-            if EnemiesFolder then
-                for _, enemy in ipairs(EnemiesFolder:GetChildren()) do
-                    local enemyRoot = enemy:FindFirstChild("HumanoidRootPart")
-                    local enemyHum = enemy:FindFirstChildOfClass("Humanoid")
-                    if enemyRoot and enemyHum and enemyHum.Health > 0 then
-                        enemyRoot.Size = Vector3.new(sizeValue, sizeValue, sizeValue)
-                        enemyRoot.Transparency = 0.7
-                        enemyRoot.CanCollide = false
                     end
                 end
             end
@@ -291,7 +274,17 @@ local function BuildUI()
     -- TAB SETTING
     Tabs.Setting:AddSection("Fast Attack Engine")
     
-    -- Ô nhập/chỉnh tốc độ đánh (Nằm phía trên nút Enable Fast Attack)
+    -- Thanh chỉnh Tầm Đánh (Tối thiểu 10 studs, Tối đa 100 studs)
+    Tabs.Setting:AddSlider("FastAttackRadius", {
+        Title = "Tầm Đánh (Attack Range)",
+        Description = "Khoảng cách quét mục tiêu đánh quái (10 - 100 studs)",
+        Default = 60,
+        Min = 10,
+        Max = 100,
+        Rounding = 0
+    })
+
+    -- Ô nhập/chỉnh tốc độ đánh
     Tabs.Setting:AddSlider("FastAttackDelay", {
         Title = "Fast Attack Speed / Delay",
         Description = "Thời gian nghỉ giữa đòn đánh (Nhỏ nhất 0s, Lớn nhất 2s)",
@@ -301,22 +294,11 @@ local function BuildUI()
         Rounding = 2
     })
 
-    -- Nút bật tắt chế độ Fast Attack (Nằm ngay bên dưới)
+    -- Nút bật tắt chế độ Fast Attack
     Tabs.Setting:AddToggle("FastAttack", {
         Title = "Enable Fast Attack",
         Description = "Đánh quái siêu tốc (Tự động jitter thời gian nhỏ để né Anti-Cheat)",
         Default = false
-    })
-
-    Tabs.Setting:AddSection("Hitbox Expander (Luôn Luôn Bật Ngầm)")
-
-    Tabs.Setting:AddSlider("HitboxSize", {
-        Title = "Kích Thước Hitbox",
-        Description = "Độ lớn của Hitbox quái (Mặc định: 15 studs)",
-        Default = 15,
-        Min = 2,
-        Max = 50,
-        Rounding = 0
     })
 
     Tabs.Setting:AddSection("Automation & Protection")
