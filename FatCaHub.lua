@@ -134,7 +134,7 @@ local DEFAULT_CONFIG = "BloxFruit_" .. LocalPlayer.Name
 local autoSaveActive = true
 
 -- ====================================================================
--- 7. CÁC HÀM HỖ TRỢ HOẠT ĐỘNG
+-- 7. CÁC HÀM HOẠT ĐỘNG CHÍNH
 -- ====================================================================
 LocalPlayer.Idled:Connect(function()
     if Fluent.Options and Fluent.Options.AntiAFK and Fluent.Options.AntiAFK.Value then
@@ -195,12 +195,10 @@ RunService.Stepped:Connect(function()
     end)
 end)
 
--- ====================================================================
--- 8. PHÂN HỆ FAST ATTACK ENGINE
--- ====================================================================
+local ATTACK_RADIUS = 60 -- Mặc định cố định 60 Studs (Tầm đánh tối đa server chấp nhận)
 
--- Hàm quét danh sách mục tiêu theo bán kính động (10 đến 100 studs)
-local function GetFastAttackTargets(radius)
+-- Hàm quét danh sách mục tiêu trong phạm vi 60 studs cố định
+local function GetFastAttackTargets()
     local targets = {}
     local char, root, hum = CharacterManager.Get()
     if not char or not root then return targets end
@@ -214,7 +212,7 @@ local function GetFastAttackTargets(radius)
 
             if enemyRoot and enemyHum and enemyHum.Health > 0 then
                 local dist = (enemyRoot.Position - myPos).Magnitude
-                if dist <= radius then
+                if dist <= ATTACK_RADIUS then
                     table.insert(targets, {enemy, enemyRoot})
                 end
             end
@@ -233,12 +231,6 @@ task.spawn(function()
             baseDelay = tonumber(Fluent.Options.FastAttackDelay.Value) or 0.5
         end
 
-        -- Lấy bán kính/tầm đánh từ UI (Nhỏ nhất 10 studs, lớn nhất 100 studs)
-        local attackRadius = 60
-        if Fluent.Options and Fluent.Options.FastAttackRadius then
-            attackRadius = tonumber(Fluent.Options.FastAttackRadius.Value) or 60
-        end
-
         -- Tạo biến thiên ngẫu nhiên rất nhỏ (từ -0.015s đến +0.015s) sát với số được set để qua mặt Anti-Cheat
         local randomJitter = (math.random(-15, 15) / 1000)
         local actualDelay = math.max(0, baseDelay + randomJitter)
@@ -253,7 +245,7 @@ task.spawn(function()
                 local tool = char:FindFirstChildOfClass("Tool")
                 if not tool then return end
 
-                local targets = GetFastAttackTargets(attackRadius)
+                local targets = GetFastAttackTargets()
                 if #targets > 0 then
                     if RegisterAttack and RegisterHit then
                         task.spawn(function()
@@ -271,23 +263,40 @@ end)
 -- 9. XÂY DỰNG GIAO DIỆN CHỨC NĂNG CHÍNH (BUILD REAL UI ELEMENTS)
 -- ====================================================================
 local function BuildUI()
-    -- TAB SETTING
-    Tabs.Setting:AddSection("Fast Attack Engine")
-    
-    -- Thanh chỉnh Tầm Đánh (Tối thiểu 10 studs, Tối đa 100 studs)
-    Tabs.Setting:AddSlider("FastAttackRadius", {
-        Title = "Tầm Đánh (Attack Range)",
-        Description = "Khoảng cách quét mục tiêu đánh quái (10 - 100 studs)",
-        Default = 60,
-        Min = 10,
-        Max = 100,
-        Rounding = 0
+    -- TAB TELEPORT & PVP
+    Tabs.TeleportPvP:AddSection("PvP Mechanics")
+    Tabs.TeleportPvP:AddToggle("Noclip", {
+        Title = "No Clip",
+        Description = "Đi xuyên tường/vật cản",
+        Default = false
     })
-
-    -- Ô nhập/chỉnh tốc độ đánh
+    
+    -- TAB SETTING
+        Tabs.Setting:AddSection("Config File")
+    Tabs.Setting:AddButton({
+        Title = "Reset Config",
+        Description = "Xóa tệp cấu hình đã lưu",
+        Callback = function()
+            autoSaveActive = false
+            pcall(function()
+                local filePath = "FatCatHub/settings/" .. DEFAULT_CONFIG .. ".json"
+                if isfile and isfile(filePath) then
+                    delfile(filePath)
+                end
+            end)
+            Fluent:Notify({
+                Title = "Fat Cat Hub",
+                Content = "Config deleted! Execute the script again to apply default.",
+                Duration = 5
+            })
+        end
+    })
+    
+    Tabs.Setting:AddSection("Fast Attack Engine")
+    -- Ô nhập/chỉnh tốc độ đánh (Delay)
     Tabs.Setting:AddSlider("FastAttackDelay", {
-        Title = "Fast Attack Speed / Delay",
-        Description = "Thời gian nghỉ giữa đòn đánh (Nhỏ nhất 0s, Lớn nhất 2s)",
+        Title = "Fast Attack Speed",
+        Description = "",
         Default = 0.5,
         Min = 0,
         Max = 2,
@@ -296,8 +305,8 @@ local function BuildUI()
 
     -- Nút bật tắt chế độ Fast Attack
     Tabs.Setting:AddToggle("FastAttack", {
-        Title = "Enable Fast Attack",
-        Description = "Đánh quái siêu tốc (Tự động jitter thời gian nhỏ để né Anti-Cheat)",
+        Title = "Fast Attack",
+        Description = "",
         Default = false
     })
 
@@ -320,35 +329,7 @@ local function BuildUI()
         Description = "Chống bị văng game khi treo máy",
         Default = true
     })
-
-    Tabs.Setting:AddSection("Config File")
     
-    Tabs.Setting:AddButton({
-        Title = "Reset Config",
-        Description = "Xóa tệp cấu hình đã lưu",
-        Callback = function()
-            autoSaveActive = false
-            pcall(function()
-                local filePath = "FatCatHub/settings/" .. DEFAULT_CONFIG .. ".json"
-                if isfile and isfile(filePath) then
-                    delfile(filePath)
-                end
-            end)
-            Fluent:Notify({
-                Title = "Fat Cat Hub",
-                Content = "Config deleted! Execute the script again to apply default.",
-                Duration = 5
-            })
-        end
-    })
-
-    -- TAB TELEPORT & PVP
-    Tabs.TeleportPvP:AddSection("PvP Mechanics")
-    Tabs.TeleportPvP:AddToggle("Noclip", {
-        Title = "No Clip",
-        Description = "Đi xuyên tường/vật cản",
-        Default = false
-    })
 end
 
 -- ====================================================================
