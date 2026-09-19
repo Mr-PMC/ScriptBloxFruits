@@ -61,7 +61,7 @@ function CharacterManager.Get()
 end
 
 -- ====================================================================
--- 4. REMOTES & THƯ MỤC BLOX FRUITS
+-- 4. REMOTES & THƯ MỤC BLOX FRUITS (TEST KHÔNG DÙNG NET MODULE)
 -- ====================================================================
 local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
 local CommF = Remotes and Remotes:WaitForChild("CommF_", 10)
@@ -73,25 +73,9 @@ local MapFolder = Workspace:WaitForChild("Map", 10)
 local SeaBeastsFolder = Workspace:FindFirstChild("SeaBeasts")
 local BoatsFolder = Workspace:FindFirstChild("Boats")
 
--- Trích xuất Net Module hỗ trợ Fast Attack
---local NetModule, RegisterAttack, RegisterHit
---pcall(function()
-    --  local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
-     -- if Modules and Modules:FindFirstChild("Net") then
-      --  NetModule = require(Modules.Net)
-      --  RegisterAttack = NetModule:RemoteEvent("RegisterAttack")
-       -- RegisterHit = NetModule:RemoteEvent("RegisterHit")
-   --end
---end)
-
--- Fallback tìm Remote trực tiếp nếu Net Module không khả dụng
---if not RegisterAttack or not RegisterHit then
-    RegisterAttack = Remotes and Remotes:FindFirstChild("RegisterAttack")
-    RegisterHit = Remotes and Remotes:FindFirstChild("RegisterHit")
---end
-
-local RegisterAttack = Remotes and Remotes:FindFirstChild("RegisterAttack")
-local RegisterHit = Remotes and Remotes:FindFirstChild("RegisterHit")
+-- LẤY TRỰC TIẾP TỪ THƯ MỤC REMOTES (ÉP BỎ QUA NET MODULE)
+local RegisterAttack = Remotes and Remotes:WaitForChild("RegisterAttack", 5)
+local RegisterHit = Remotes and Remotes:WaitForChild("RegisterHit", 5)
 
 -- ====================================================================
 -- 5. KHỞI TẠO FRAMEWORK FLUENT UI & TABS
@@ -102,7 +86,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 
 local Window = Fluent:CreateWindow({
     Title = "Fat Cat Hub",
-    SubTitle = "v2.5 Full Edition | Sea " .. tostring(currentSea),
+    SubTitle = "v2.5 Direct Remotes Test | Sea " .. tostring(currentSea),
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 320),
     Acrylic = true,
@@ -201,7 +185,6 @@ end)
 -- ====================================================================
 -- 8. TỐI ƯU HÓA HIỆU ỨNG (FX CLEANER & FPS BOOST)
 -- ====================================================================
-
 local function IsFXCleanerEnabled()
     return Fluent 
        and Fluent.Options 
@@ -261,7 +244,7 @@ task.spawn(function()
 end)
 
 -- ====================================================================
--- 9. FAST ATTACK ENGINE
+-- 9. FAST ATTACK ENGINE (TEST DIRECT REMOTES)
 -- ====================================================================
 local ATTACK_RADIUS = 60
 
@@ -308,6 +291,7 @@ task.spawn(function()
                 if #targets > 0 then
                     if RegisterAttack and RegisterHit then
                         task.spawn(function()
+                            -- Gửi trực tiếp Remote thô mà không thông qua mã hóa của Net Module
                             RegisterAttack:FireServer(0)
                             RegisterHit:FireServer(targets[1][2], targets)
                         end)
@@ -354,7 +338,7 @@ local function BuildUI()
     Tabs.Setting:AddSection("Fast Attack Engine")
     Tabs.Setting:AddToggle("FastAttack", {
         Title = "Fast Attack",
-        Description = "Kích hoạt đánh nhanh",
+        Description = "Kích hoạt đánh nhanh (Direct Remotes Mode)",
         Default = true
     })
 
@@ -434,6 +418,6 @@ Window:SelectTab(1)
 
 Fluent:Notify({
     Title = "Fat Cat Hub",
-    Content = "Fat Cat Hub v2.5 - Tải Hoàn Tất!",
+    Content = "Fat Cat Hub - Đã nạp Mode Test Direct Remotes!",
     Duration = 5
 })
