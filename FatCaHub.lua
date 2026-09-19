@@ -85,10 +85,10 @@ pcall(function()
 end)
 
 -- Fallback tìm Remote trực tiếp nếu Net Module không khả dụng
-if not RegisterAttack or not RegisterHit then
-    RegisterAttack = Remotes and Remotes:FindFirstChild("RegisterAttack")
-    RegisterHit = Remotes and Remotes:FindFirstChild("RegisterHit")
-end
+--if not RegisterAttack or not RegisterHit then
+   -- RegisterAttack = Remotes and Remotes:FindFirstChild("RegisterAttack")
+   -- RegisterHit = Remotes and Remotes:FindFirstChild("RegisterHit")
+--end
 
 -- ====================================================================
 -- 5. KHỞI TẠO FRAMEWORK FLUENT UI & TABS
