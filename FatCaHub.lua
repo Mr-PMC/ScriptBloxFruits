@@ -134,7 +134,7 @@ local DEFAULT_CONFIG = "BloxFruit_" .. LocalPlayer.Name
 local autoSaveActive = true
 
 -- ====================================================================
--- 7. CÁC HÀM HOẠT ĐỘNG CHÍNH
+-- 7. CÁC HÀM HOẠT ĐỘNG CHÍNH & AUTOMATION
 -- ====================================================================
 LocalPlayer.Idled:Connect(function()
     if Fluent.Options and Fluent.Options.AntiAFK and Fluent.Options.AntiAFK.Value then
@@ -195,6 +195,61 @@ RunService.Stepped:Connect(function()
     end)
 end)
 
+-- ====================================================================
+-- 8. TỐI ƯU HÓA HIỆU ỨNG (FX CLEANER & FPS BOOST)
+-- ====================================================================
+local FXFolder = Workspace:FindFirstChild("FX")
+
+-- Xóa tức thì các Particle / Vệt chém vừa được tạo ra trong Workspace.FX
+if FXFolder then
+    FXFolder.ChildAdded:Connect(function(child)
+        if Fluent.Options and Fluent.Options.RemoveAttackFX and Fluent.Options.RemoveAttackFX.Value then
+            task.defer(function()
+                if child and child.Parent then
+                    child:Destroy()
+                end
+            end)
+        end
+    end)
+end
+
+-- Hàm tắt Trail/Particle trên nhân vật và vũ khí
+local function CleanCharacterFX(char)
+    if not char then return end
+    for _, obj in ipairs(char:GetDescendants()) do
+        if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") or obj:IsA("Smoke") or obj:IsA("Fire") then
+            obj.Enabled = false
+        end
+    end
+end
+
+-- Vòng lặp dọn dẹp FX ngầm & Tắt Camera Shake
+task.spawn(function()
+    while task.wait(0.5) do
+        pcall(function()
+            if Fluent.Options and Fluent.Options.RemoveAttackFX and Fluent.Options.RemoveAttackFX.Value then
+                -- Tắt rung màn hình khi Fast Attack
+                local CameraShaker = ReplicatedStorage:FindFirstChild("Util") and ReplicatedStorage.Util:FindFirstChild("CameraShaker")
+                if CameraShaker then
+                    local shakerModule = require(CameraShaker)
+                    if shakerModule and shakerModule.Stop then
+                        shakerModule:Stop()
+                    end
+                end
+
+                -- Dọn Particle dư thừa trên nhân vật
+                local char = LocalPlayer.Character
+                if char then
+                    CleanCharacterFX(char)
+                end
+            end
+        end)
+    end
+end)
+
+-- ====================================================================
+-- 9. FAST ATTACK ENGINE
+-- ====================================================================
 local ATTACK_RADIUS = 60 -- Mặc định cố định 60 Studs (Tầm đánh tối đa server chấp nhận)
 
 -- Hàm quét danh sách mục tiêu trong phạm vi 60 studs cố định
@@ -222,10 +277,9 @@ local function GetFastAttackTargets()
     return targets
 end
 
--- Vòng lặp Fast Attack với Delay ngẫu nhiên tự động (Khoảng từ 0.01s đến 0.5s - Đuôi số thập phân dài né Anti-Cheat)
+-- Vòng lặp Fast Attack với Delay ngẫu nhiên tự động (Khoảng từ 0.01s đến 0.5s)
 task.spawn(function()
     while true do
-        -- Tạo số thập phân ngẫu nhiên dài thòng trong khoảng [0.01, 0.5]
         local actualDelay = math.clamp(math.random() * 0.5, 0.01, 0.5)
 
         task.wait(actualDelay)
@@ -234,10 +288,12 @@ task.spawn(function()
             if Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
                 local char, root, hum = CharacterManager.Get()
                 if not char or not hum or hum.Health <= 0 then return end
+                
                 -- KIỂM TRA: Phải có vũ khí đang cầm trên tay
                 local tool = char:FindFirstChildOfClass("Tool")
                 if not tool then return end
-                -- KIỂM TRA : Phải có quái trong tầm 60 Studs
+                
+                -- KIỂM TRA: Phải có quái trong tầm 60 Studs
                 local targets = GetFastAttackTargets()
                 if #targets > 0 then
                     if RegisterAttack and RegisterHit then
@@ -253,7 +309,7 @@ task.spawn(function()
 end)
 
 -- ====================================================================
--- 9. XÂY DỰNG GIAO DIỆN CHỨC NĂNG CHÍNH (BUILD REAL UI ELEMENTS)
+-- 10. XÂY DỰNG GIAO DIỆN CHỨC NĂNG CHÍNH (BUILD REAL UI ELEMENTS)
 -- ====================================================================
 local function BuildUI()
     -- TAB TELEPORT & PVP
@@ -287,11 +343,18 @@ local function BuildUI()
     
     Tabs.Setting:AddSection("Fast Attack Engine")
 
-    -- Nút bật tắt chế độ Fast Attack (Đã loại bỏ ô chỉnh Speed)
+    -- Nút bật tắt chế độ Fast Attack
     Tabs.Setting:AddToggle("FastAttack", {
         Title = "Fast Attack",
         Description = "Tự động đánh nhanh (Random Delay 0.01s - 0.5s)",
         Default = false
+    })
+
+    -- Nút bật tắt chế độ Xóa hiệu ứng / Giảm Lag
+    Tabs.Setting:AddToggle("RemoveAttackFX", {
+        Title = "Remove Attack FX (FPS Boost)",
+        Description = "Xóa vệt chém, hiệu ứng nổ & vô hiệu hóa rung màn hình giúp mượt game",
+        Default = true
     })
 
     Tabs.Setting:AddSection("Automation & Protection")
@@ -317,7 +380,7 @@ local function BuildUI()
 end
 
 -- ====================================================================
--- 10. QUẢN LÝ CẤU HÌNH & TỰ ĐỘNG LƯU (SAVE MANAGER & CONFIG)
+-- 11. QUẢN LÝ CẤU HÌNH & TỰ ĐỘNG LƯU (SAVE MANAGER & CONFIG)
 -- ====================================================================
 local function SetupConfigManager()
     SaveManager:SetLibrary(Fluent)
@@ -356,7 +419,7 @@ local function SetupConfigManager()
 end
 
 -- ====================================================================
--- 11. THỰC THI KHỞI CHẠY HỆ THỐNG
+-- 12. THỰC THI KHỞI CHẠY HỆ THỐNG
 -- ====================================================================
 BuildUI()
 SetupConfigManager()
