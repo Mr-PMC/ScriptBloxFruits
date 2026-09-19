@@ -76,12 +76,12 @@ local BoatsFolder = Workspace:FindFirstChild("Boats")
 -- Trích xuất Net Module hỗ trợ Fast Attack
 local NetModule, RegisterAttack, RegisterHit
 pcall(function()
-       local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
-       if Modules and Modules:FindFirstChild("Net") then
+    local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
+    if Modules and Modules:FindFirstChild("Net") then
         NetModule = require(Modules.Net)
         RegisterAttack = NetModule:RemoteEvent("RegisterAttack")
-       -RegisterHit = NetModule:RemoteEvent("RegisterHit")
-   end
+        RegisterHit = NetModule:RemoteEvent("RegisterHit")
+    end
 end)
 
 -- Fallback tìm Remote trực tiếp nếu Net Module không khả dụng
@@ -352,13 +352,13 @@ local function BuildUI()
     Tabs.Setting:AddToggle("FastAttack", {
         Title = "Fast Attack",
         Description = "Kích hoạt đánh nhanh",
-        Default = true
+        Default = false
     })
 
     Tabs.Setting:AddSection("Performance")
     Tabs.Setting:AddToggle("RemoveAttackFX", {
         Title = "Remove Attack FX (FPS Boost)",
-        Description = "Tắt vệt chém, hiệu ứng nổ, số dame & rung màn hình",
+        Description = "Tắt vệt chém, hiệu ứng nổ, số dame & rung màn hình giúp mượt game",
         Default = true
     })
 
