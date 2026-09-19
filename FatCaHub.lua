@@ -61,7 +61,7 @@ function CharacterManager.Get()
 end
 
 -- ====================================================================
--- 4. REMOTES & THƯ MỤC BLOX FRUITS
+-- 4. REMOTES & THƯ MỤC BLOX FRUITS (CHẾ ĐỘ TEST FALLBACK)
 -- ====================================================================
 local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
 local CommF = Remotes and Remotes:WaitForChild("CommF_", 10)
@@ -73,21 +73,34 @@ local MapFolder = Workspace:WaitForChild("Map", 10)
 local SeaBeastsFolder = Workspace:FindFirstChild("SeaBeasts")
 local BoatsFolder = Workspace:FindFirstChild("Boats")
 
--- Trích xuất Net Module hỗ trợ Fast Attack
+-- Đặt 'true' để test Fallback. Đặt 'false' để chạy Net Module bình thường.
+local FORCE_TEST_FALLBACK = true 
+
 local NetModule, RegisterAttack, RegisterHit
-pcall(function()
-    local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
-    if Modules and Modules:FindFirstChild("Net") then
-        NetModule = require(Modules.Net)
-        RegisterAttack = NetModule:RemoteEvent("RegisterAttack")
-        RegisterHit = NetModule:RemoteEvent("RegisterHit")
-    end
-end)
+
+if not FORCE_TEST_FALLBACK then
+    -- Trích xuất Net Module hỗ trợ Fast Attack
+    pcall(function()
+        local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
+        if Modules and Modules:FindFirstChild("Net") then
+            NetModule = require(Modules.Net)
+            RegisterAttack = NetModule:RemoteEvent("RegisterAttack")
+            RegisterHit = NetModule:RemoteEvent("RegisterHit")
+        end
+    end)
+else
+    warn("[TEST MODE] Đã bỏ qua Net Module để test Fallback Remotes!")
+end
 
 -- Fallback tìm Remote trực tiếp nếu Net Module không khả dụng
 if not RegisterAttack or not RegisterHit then
     RegisterAttack = Remotes and Remotes:FindFirstChild("RegisterAttack")
     RegisterHit = Remotes and Remotes:FindFirstChild("RegisterHit")
+    
+    print("--------------------------------------------------")
+    print("[FALLBACK CHECK] RegisterAttack Found:", RegisterAttack)
+    print("[FALLBACK CHECK] RegisterHit Found:", RegisterHit)
+    print("--------------------------------------------------")
 end
 
 -- ====================================================================
@@ -352,13 +365,13 @@ local function BuildUI()
     Tabs.Setting:AddToggle("FastAttack", {
         Title = "Fast Attack",
         Description = "Kích hoạt đánh nhanh",
-        Default = false
+        Default = true
     })
 
     Tabs.Setting:AddSection("Performance")
     Tabs.Setting:AddToggle("RemoveAttackFX", {
         Title = "Remove Attack FX (FPS Boost)",
-        Description = "Tắt vệt chém, hiệu ứng nổ, số dame & rung màn hình giúp mượt game",
+        Description = "Tắt vệt chém, hiệu ứng nổ, số dame & rung màn hình",
         Default = true
     })
 
