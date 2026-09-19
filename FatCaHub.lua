@@ -74,21 +74,24 @@ local SeaBeastsFolder = Workspace:FindFirstChild("SeaBeasts")
 local BoatsFolder = Workspace:FindFirstChild("Boats")
 
 -- Trích xuất Net Module hỗ trợ Fast Attack
-local NetModule, RegisterAttack, RegisterHit
-pcall(function()
-    local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
-    if Modules and Modules:FindFirstChild("Net") then
-        NetModule = require(Modules.Net)
-        RegisterAttack = NetModule:RemoteEvent("RegisterAttack")
-        RegisterHit = NetModule:RemoteEvent("RegisterHit")
-    end
-end)
+--local NetModule, RegisterAttack, RegisterHit
+--pcall(function()
+    --  local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
+     -- if Modules and Modules:FindFirstChild("Net") then
+      --  NetModule = require(Modules.Net)
+      --  RegisterAttack = NetModule:RemoteEvent("RegisterAttack")
+       -- RegisterHit = NetModule:RemoteEvent("RegisterHit")
+   --end
+--end)
 
 -- Fallback tìm Remote trực tiếp nếu Net Module không khả dụng
 --if not RegisterAttack or not RegisterHit then
-   -- RegisterAttack = Remotes and Remotes:FindFirstChild("RegisterAttack")
-   -- RegisterHit = Remotes and Remotes:FindFirstChild("RegisterHit")
+    RegisterAttack = Remotes and Remotes:FindFirstChild("RegisterAttack")
+    RegisterHit = Remotes and Remotes:FindFirstChild("RegisterHit")
 --end
+
+local RegisterAttack = Remotes and Remotes:FindFirstChild("RegisterAttack")
+local RegisterHit = Remotes and Remotes:FindFirstChild("RegisterHit")
 
 -- ====================================================================
 -- 5. KHỞI TẠO FRAMEWORK FLUENT UI & TABS
