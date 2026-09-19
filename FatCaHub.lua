@@ -208,105 +208,66 @@ local function BuildUI()
             })
         end
     })
-    Tabs.Setting:AddToggle("AutoBuso", {
-        Title = "Auto Turn On Buso",
-        Description = "",
-        Default = true
-    })
-    Tabs.Setting:AddToggle("AutoKen", {
-        Title = "Auto Turn On Ken",
-        Description = "",
-        Default = true
-    })
-    Tabs.Setting:AddToggle("AntiAFK", {
-        Title = "Anti AFK",
-        Description = "",
-        Default = true
-    })
+    Tabs.Setting:AddToggle("AutoBuso", { Title = "Auto Turn On Buso", Default = true })
+    Tabs.Setting:AddToggle("AutoKen", { Title = "Auto Turn On Ken", Default = true })
+    Tabs.Setting:AddToggle("AntiAFK", { Title = "Anti AFK", Default = true })
 
     -- TAB TELEPORT & PVP
     Tabs.TeleportPvP:AddSection("PvP")
-    Tabs.TeleportPvP:AddToggle("Noclip", {
-        Title = "No Clip",
-        Description = "",
-        Default = false
-    })
+    Tabs.TeleportPvP:AddToggle("Noclip", { Title = "No Clip", Default = false })
 
     -- ================================================================
-    -- NÚT TEST TỌA ĐỘ 3 CỔNG DỊCH CHUYỂN SEA 3 (TEST PORTALS)
+    -- TOOL LOG TỌA ĐỘ NHÂN VẬT THỦ CÔNG
     -- ================================================================
-    Tabs.TeleportPvP:AddSection("Test Cổng Dịch Chuyển Sea 3 (Tại Pháo Đài)")
+    Tabs.TeleportPvP:AddSection("Công Cụ Lấy Tọa Độ")
 
-    -- 1. Cổng bên phải: Đảo Phụ Nữ
-    Tabs.TeleportPvP:AddButton({
-        Title = "TP Cổng Đảo Phụ Nữ (Pháo Đài)",
-        Description = "Phải -> Hydra (-5011.0805..., 314.5315..., -3172.5029...)",
-        Callback = function()
-            local _, root = CharacterManager.Get()
-            if root then
-                root.CFrame = CFrame.new(-5011.08056640625, 314.53155517578125, -3172.5029296875)
-            end
-        end
+    local LoggedCoordInput = Tabs.TeleportPvP:AddInput("LoggedCoordInput", {
+        Title = "Tọa độ vừa lấy (CFrame)",
+        Default = "Di chuyển đến cổng rồi bấm nút bên dưới...",
+        Numeric = false,
+        Finished = false,
+        Callback = function(Value) end
     })
 
-    -- 2. Cổng ở giữa: Dinh Thự
     Tabs.TeleportPvP:AddButton({
-        Title = "TP Cổng Dinh Thự (Pháo Đài)",
-        Description = "Giữa -> Mansion (-5052.4838..., 314.5315..., -3172.5029...)",
+        Title = "LẤY TỌA ĐỘ HIỆN TẠI",
+        Description = "In ra Console (F9) + Copy Clipboard + Hiện lên UI",
         Callback = function()
             local _, root = CharacterManager.Get()
             if root then
-                root.CFrame = CFrame.new(-5052.48388671875, 314.53155517578125, -3172.5029296875)
-            end
-        end
-    })
+                local pos = root.Position
+                local cf = root.CFrame
+                
+                -- Định dạng số thực chính xác không làm tròn
+                local cfFormatted = string.format("CFrame.new(%s, %s, %s)", tostring(pos.X), tostring(pos.Y), tostring(pos.Z))
+                local vecFormatted = string.format("Vector3.new(%s, %s, %s)", tostring(pos.X), tostring(pos.Y), tostring(pos.Z))
+                local fullText = string.format("-- CFrame:\n%s\n-- Vector3:\n%s", cfFormatted, vecFormatted)
 
-    -- 3. Cổng bên trái: Tiki Outpost
-    Tabs.TeleportPvP:AddButton({
-        Title = "TP Cổng Tiki Outpost (Pháo Đài)",
-        Description = "Trái -> Tiki (-5093.8872..., 314.5315..., -3172.5029...)",
-        Callback = function()
-            local _, root = CharacterManager.Get()
-            if root then
-                root.CFrame = CFrame.new(-5093.88720703125, 314.53155517578125, -3172.5029296875)
-            end
-        end
-    })
+                -- 1. Copy Clipboard
+                if setclipboard then
+                    setclipboard(cfFormatted)
+                end
 
-    Tabs.TeleportPvP:AddSection("Test Tọa Độ Ngược Lại (Tại Các Đảo)")
+                -- 2. Cập nhật Text Input
+                LoggedCoordInput:SetValue(cfFormatted)
 
-    -- 4. Ngược lại: Đảo Phụ Nữ
-    Tabs.TeleportPvP:AddButton({
-        Title = "TP Cổng Ngược Lại (Tại Đảo Phụ Nữ)",
-        Description = "Tọa độ: (5749.7397..., 610.4295..., -268.8210...)",
-        Callback = function()
-            local _, root = CharacterManager.Get()
-            if root then
-                root.CFrame = CFrame.new(5749.73974609375, 610.4295043945312, -268.8210144042969)
-            end
-        end
-    })
+                -- 3. In ra Console (F9)
+                print("\n================ [ FAT CAT HUB LOG COORDINATES ] ================")
+                print(fullText)
+                print("=================================================================\n")
 
-    -- 5. Ngược lại: Dinh Thự
-    Tabs.TeleportPvP:AddButton({
-        Title = "TP Cổng Ngược Lại (Tại Dinh Thự)",
-        Description = "Tọa độ: (-12463.8740..., 374.9144..., -7523.7739...)",
-        Callback = function()
-            local _, root = CharacterManager.Get()
-            if root then
-                root.CFrame = CFrame.new(-12463.8740234375, 374.9144592285156, -7523.77392578125)
-            end
-        end
-    })
-
-    -- 6. Ngược lại: Tiki Outpost
-    Tabs.TeleportPvP:AddButton({
-        Title = "TP Cổng Ngược Lại (Tại Tiki Outpost)",
-        Description = "Tọa độ: (-16235.4853..., 9.0706..., 482.8080...)",
-        Callback = function()
-            local _, root = CharacterManager.Get()
-            if root then
-                root.CFrame = CFrame.new(-16235.4853515625, 9.070624351501465, 482.8080139160156)
+                -- 4. Thông báo
+                Fluent:Notify({
+                    Title = "Fat Cat Hub",
+                    Content = "Đã lấy tọa độ! Đã copy vào Clipboard & Console (F9)",
+                    Duration = 4
+                })
+            else
+                Fluent:Notify({
+                    Title = "Fat Cat Hub",
+                    Content = "Không tìm thấy nhân vật!",
+                    Duration = 3
+                })
             end
         end
     })
