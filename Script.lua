@@ -372,3 +372,23 @@ local QuestLevelData = {
         {MinLevel = 2575, MaxLevel = 9999, Monster = "Skull Slayer",         Quest = "TikiQuest3",        QuestLevel = 2, NPCPos = CFrame.new(-16665.19140625, 104.59640502929688, 1579.6943359375), MonterPos = CFrame.new(-16811.5703125, 84.625244140625, 1542.235107421875)},
     }
 }
+
+
+
+
+
+-- ====================================================================
+-- TỌA ĐỘ CHÍNH XÁC 3 CỔNG SEA 3 (FAT CAT HUB)
+-- ====================================================================
+
+-- 1. ĐẢO PHỤ NỮ (HYDRA ISLAND)
+local Portal_Hydra_Castle = CFrame.new(-5027.02880859375, 316.5108947753906, -3206.70458984375)
+local Portal_Hydra_Island = CFrame.new(5650.94873046875, 1015.2830200195312, -350.3792419433594)
+
+-- 2. DINH THỰ (MANSION)
+local Portal_Mansion_Castle = CFrame.new(-5060.41015625, 316.5108947753906, -3193.2255859375)
+local Portal_Mansion_Island = CFrame.new(-12463.6015625, 376.3358459472656, -7566.08349609375)
+
+-- 3. TIKI OUTPOST (CỔNG MÀU VÀNG)
+local Portal_Tiki_Castle = CFrame.new(-5096.91552734375, 314.1842956542969, -3178.402587890625)
+local Portal_Tiki_Island = CFrame.new(-16798.09375, 57.25533676147461, 290.7585144042969)
