@@ -352,7 +352,7 @@ local function BuildUI()
     Tabs.Setting:AddToggle("FastAttack", {
         Title = "Fast Attack",
         Description = "Kích hoạt đánh nhanh",
-        Default = false
+        Default = true
     })
 
     Tabs.Setting:AddSection("Performance")
