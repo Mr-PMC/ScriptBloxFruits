@@ -263,9 +263,10 @@ task.spawn(function()
 end)
 
 -- ====================================================================
--- 9. FAST ATTACK ENGINE (TARGET BATCHING CHUẨN HUB LỚN)
+-- 9. FAST ATTACK ENGINE (CHIA NHÓM TARGET CHUNKING - ĐÁNH TỐI ĐA 8 CON/TICK)
 -- ====================================================================
 local ATTACK_RADIUS = 60
+local MAX_TARGETS_PER_TICK = 8 -- Giới hạn tối đa 8 con cùng lúc để tránh rủi ro văng game / kick Remote
 
 local function GetFastAttackTargets()
     local targets = {}
@@ -284,8 +285,11 @@ local function GetFastAttackTargets()
             if enemyRoot and enemyHum and enemyHum.Health > 0 then
                 local dist = (enemyRoot.Position - myPos).Magnitude
                 if dist <= ATTACK_RADIUS then
-                    -- Cấu trúc chuẩn của Blox Fruits Batch: {Model, TargetPart}
                     table.insert(targets, {enemy, enemyRoot})
+                    -- Đạt ngưỡng 8 con thì dừng quét để tối ưu
+                    if #targets >= MAX_TARGETS_PER_TICK then
+                        break
+                    end
                 end
             end
         end
@@ -296,7 +300,6 @@ end
 
 task.spawn(function()
     while true do
-        -- Tần số gửi gói tin tối ưu (tránh bị Kick/Rate-Limit)
         local randomJitter = (math.random(-5, 5) / 1000)
         local actualDelay = math.max(0, 0.015 + randomJitter)
 
@@ -307,19 +310,28 @@ task.spawn(function()
                 local char, root, hum = CharacterManager.Get()
                 if not char or not hum or hum.Health <= 0 then return end
 
-                -- Bắt buộc phải cầm vũ khí trên tay
                 local tool = char:FindFirstChildOfClass("Tool")
                 if not tool then return end
 
-                -- Kiểm tra Net Module
                 if not GetNetModule() then return end
 
                 local targets = GetFastAttackTargets()
-                if #targets > 0 then
-                    -- Gửi Vung Vũ Khí (0s Cooldown)
+                local totalTargets = #targets
+
+                if totalTargets > 0 then
+                    -- 1. Gửi vung vũ khí
                     RegisterAttack:FireServer(0)
-                    -- Gửi Hit Batch trúng toàn bộ mục tiêu trong tầm đánh cùng 1 lúc
-                    RegisterHit:FireServer(targets[1][2], targets)
+
+                    -- 2. Tách danh sách thành các nhóm 2 con (Gửi tối đa 4 nhóm = 8 con trong 1 tick)
+                    for i = 1, totalTargets, 2 do
+                        local chunk = { targets[i] }
+                        if targets[i + 1] then
+                            table.insert(chunk, targets[i + 1])
+                        end
+
+                        -- Gửi gói sát thương riêng cho từng cặp
+                        RegisterHit:FireServer(chunk[1][2], chunk)
+                    end
                 end
             end
         end)
