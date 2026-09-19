@@ -196,7 +196,7 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ====================================================================
--- 8. TỐI ƯU HÓA HIỆU ỨNG (FX CLEANER & FPS BOOST) - FIXED VERSION
+-- 8. TỐI ƯU HÓA HIỆU ỨNG (FX CLEANER & FPS BOOST)
 -- ====================================================================
 
 local function IsFXCleanerEnabled()
@@ -206,33 +206,40 @@ local function IsFXCleanerEnabled()
        and Fluent.Options.RemoveAttackFX.Value
 end
 
--- Lắng nghe trực tiếp Workspace để diệt ngay các Object hiệu ứng vừa sinh ra
-Workspace.ChildAdded:Connect(function(child)
-    if IsFXCleanerEnabled() then
-        local childName = child.Name
-        if childName == "FX" or childName == "Particle" or childName == "Particles" 
-        or childName:find("Hit") or childName:find("Slash") or childName:find("Explosion") then
-            task.defer(function()
-                if child and child.Parent then
-                    child:Destroy()
-                end
-            end)
-        end
-    end
-end)
-
-local function DisableEffectsIn(parent)
-    if not parent then return end
-    for _, obj in ipairs(parent:GetDescendants()) do
-        if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") or obj:IsA("Fire") or obj:IsA("Smoke") or obj:IsA("Sparkles") then
-            obj.Enabled = false
+-- 8.1. Tối ưu Lighting & Môi trường
+local function OptimizeLighting()
+    Lighting.GlobalShadows = false
+    Lighting.FogEnd = 9e9
+    for _, v in ipairs(Lighting:GetChildren()) do
+        if v:IsA("PostEffect") or v:IsA("Atmosphere") then
+            v.Enabled = false
         end
     end
 end
 
--- Vòng lặp dọn dẹp FX ngầm, Tắt Rung màn hình & Xóa số Sát thương (Damage Text)
+-- 8.2. Hàm vô hiệu hóa render hiệu ứng
+local function DisableFX(v)
+    if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
+        v.Enabled = false
+    elseif v:IsA("Decal") or v:IsA("Texture") then
+        v.Texture = ""
+    end
+end
+
+-- 8.3. Bắt sự kiện tạo Object mới trong Workspace
+Workspace.DescendantAdded:Connect(function(v)
+    if IsFXCleanerEnabled() then
+        DisableFX(v)
+        if v:IsA("BillboardGui") and (v.Name == "Damage" or v.Name:find("Damage") or v.Name == "DamageCounter") then
+            v.Enabled = false
+        end
+    end
+end)
+
+-- 8.4. Vòng lặp dọn dẹp FX ngầm
 task.spawn(function()
-    while task.wait(0.3) do
+    OptimizeLighting()
+    while task.wait(1) do
         if IsFXCleanerEnabled() then
             pcall(function()
                 local fxFolder = Workspace:FindFirstChild("FX")
@@ -240,27 +247,9 @@ task.spawn(function()
                     fxFolder:ClearAllChildren()
                 end
 
-                local char = LocalPlayer.Character
-                if char then
-                    DisableEffectsIn(char)
-                end
-
-                DisableEffectsIn(Camera)
-
-                local cameraShaker = ReplicatedStorage:FindFirstChild("Util") and ReplicatedStorage.Util:FindFirstChild("CameraShaker")
-                if cameraShaker then
-                    local shakerModule = require(cameraShaker)
-                    if shakerModule and shakerModule.Stop then
-                        shakerModule:Stop()
-                    end
-                end
-
-                local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-                if playerGui then
-                    for _, gui in ipairs(playerGui:GetChildren()) do
-                        if gui.Name == "Damage" or gui.Name:find("Damage") or gui.Name == "DamageCounter" then
-                            gui:Destroy()
-                        end
+                for _, v in ipairs(Camera:GetChildren()) do
+                    if v:IsA("Model") or v:IsA("Part") then
+                        DisableFX(v)
                     end
                 end
             end)
@@ -271,9 +260,8 @@ end)
 -- ====================================================================
 -- 9. FAST ATTACK ENGINE
 -- ====================================================================
-local ATTACK_RADIUS = 60 -- Mặc định cố định 60 Studs (Tầm đánh tối đa server chấp nhận)
+local ATTACK_RADIUS = 60
 
--- Hàm quét danh sách mục tiêu trong phạm vi 60 studs cố định
 local function GetFastAttackTargets()
     local targets = {}
     local char, root, hum = CharacterManager.Get()
@@ -298,16 +286,10 @@ local function GetFastAttackTargets()
     return targets
 end
 
--- Vòng lặp Fast Attack với Delay linh hoạt & Random Jitter né Anti-Cheat
 task.spawn(function()
     while true do
-        local baseDelay = 0.5
-        if Fluent.Options and Fluent.Options.FastAttackDelay then
-            baseDelay = tonumber(Fluent.Options.FastAttackDelay.Value) or 0.5
-        end
-
-        local randomJitter = (math.random(-15, 15) / 1000)
-        local actualDelay = math.max(0, baseDelay + randomJitter)
+        local randomJitter = (math.random(-10, 10) / 1000)
+        local actualDelay = math.max(0, 0.05 + randomJitter)
 
         task.wait(actualDelay)
 
@@ -367,32 +349,20 @@ local function BuildUI()
     })
     
     Tabs.Setting:AddSection("Fast Attack Engine")
-    -- Ô nhập/chỉnh tốc độ đánh (Delay)
-    Tabs.Setting:AddSlider("FastAttackDelay", {
-        Title = "Fast Attack Speed",
-        Description = "",
-        Default = 0.5,
-        Min = 0,
-        Max = 2,
-        Rounding = 2
-    })
-
-    -- Nút bật tắt chế độ Fast Attack
     Tabs.Setting:AddToggle("FastAttack", {
         Title = "Fast Attack",
-        Description = "",
+        Description = "Kích hoạt đánh nhanh",
         Default = false
     })
 
-    -- Nút bật tắt chế độ Xóa hiệu ứng / Giảm Lag
+    Tabs.Setting:AddSection("Performance")
     Tabs.Setting:AddToggle("RemoveAttackFX", {
         Title = "Remove Attack FX (FPS Boost)",
-        Description = "Xóa vệt chém, hiệu ứng nổ, số dame & vô hiệu hóa rung màn hình giúp mượt game",
+        Description = "Tắt vệt chém, hiệu ứng nổ, số dame & rung màn hình giúp mượt game",
         Default = true
     })
 
     Tabs.Setting:AddSection("Automation & Protection")
-    
     Tabs.Setting:AddToggle("AutoBuso", {
         Title = "Auto Turn On Buso",
         Description = "Tự động bật Haki Vũ Trang",
@@ -410,7 +380,6 @@ local function BuildUI()
         Description = "Chống bị văng game khi treo máy",
         Default = true
     })
-    
 end
 
 -- ====================================================================
