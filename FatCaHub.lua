@@ -26,7 +26,7 @@ local ParentGui = (gethui and gethui()) or CoreGui
 -- 2. KIỂM TRA MAP & SEA CHECK 
 -- ====================================================================
 local MAP_SEAS = {
-    [85211729168715] = 1,  -- Sea 1
+    [2753915549] = 1,  -- Sea 1
     [79091703265657] = 2,  -- Sea 2
     [100117331123089] = 3   -- Sea 3
 }
@@ -298,8 +298,7 @@ task.spawn(function()
     while true do
         -- Tần số gửi gói tin tối ưu (tránh bị Kick/Rate-Limit)
         local randomJitter = (math.random(-5, 5) / 1000)
-        local actualDelay = math.max(0, 0.015 + randomJitter)
-
+        local actualDelay = 0.015 + (math.random(-2, 5) / 1000)
         task.wait(actualDelay)
 
         pcall(function()
