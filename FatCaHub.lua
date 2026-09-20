@@ -26,7 +26,7 @@ local ParentGui = (gethui and gethui()) or CoreGui
 -- 2. KIỂM TRA MAP & SEA CHECK 
 -- ====================================================================
 local MAP_SEAS = {
-    [2753915549] = 1,      -- Sea 1
+    [85211729168715] = 1,  -- Sea 1
     [79091703265657] = 2,  -- Sea 2
     [100117331123089] = 3   -- Sea 3
 }
@@ -61,7 +61,7 @@ function CharacterManager.Get()
 end
 
 -- ====================================================================
--- 4. REMOTES & NET MODULE (LẤY TRỰC TIẾP TRÁNH CRASH DELTA)
+-- 4. REMOTES & NET MODULE (CHUẨN CÁC HUB LỚN)
 -- ====================================================================
 local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
 local CommF = Remotes and Remotes:WaitForChild("CommF_", 10)
@@ -73,29 +73,27 @@ local MapFolder = Workspace:WaitForChild("Map", 10)
 local SeaBeastsFolder = Workspace:FindFirstChild("SeaBeasts")
 local BoatsFolder = Workspace:FindFirstChild("Boats")
 
-local RegisterAttack, RegisterHit
+-- Khởi tạo Net Module Wrapper
+local NetModule, RegisterAttack, RegisterHit
 
-local function GetNetRemotes()
-    if RegisterAttack and RegisterHit then return true end
+local function GetNetModule()
+    if RegisterAttack and RegisterHit then
+        return true
+    end
 
-    pcall(function()
+    local success, _ = pcall(function()
         local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
-        local Net = Modules and Modules:WaitForChild("Net", 5)
-        if Net then
-            RegisterAttack = Net:FindFirstChild("RE/RegisterAttack") or Net:FindFirstChild("RegisterAttack")
-            RegisterHit = Net:FindFirstChild("RE/RegisterHit") or Net:FindFirstChild("RegisterHit")
+        if Modules and Modules:FindFirstChild("Net") then
+            NetModule = require(Modules.Net)
+            RegisterAttack = NetModule:RemoteEvent("RegisterAttack")
+            RegisterHit = NetModule:RemoteEvent("RegisterHit")
         end
     end)
 
-    if not RegisterAttack or not RegisterHit then
-        RegisterAttack = ReplicatedStorage:FindFirstChild("RegisterAttack", true)
-        RegisterHit = ReplicatedStorage:FindFirstChild("RegisterHit", true)
-    end
-
-    return (RegisterAttack ~= nil) and (RegisterHit ~= nil)
+    return success and (RegisterAttack ~= nil) and (RegisterHit ~= nil)
 end
 
-GetNetRemotes()
+GetNetModule()
 
 -- ====================================================================
 -- 5. KHỞI TẠO FRAMEWORK FLUENT UI & TABS
@@ -205,6 +203,7 @@ end)
 -- ====================================================================
 -- 8. TỐI ƯU HÓA HIỆU ỨNG (FX CLEANER & FPS BOOST)
 -- ====================================================================
+
 local function IsFXCleanerEnabled()
     return Fluent 
        and Fluent.Options 
@@ -212,6 +211,7 @@ local function IsFXCleanerEnabled()
        and Fluent.Options.RemoveAttackFX.Value
 end
 
+-- 8.1. Tối ưu Lighting & Môi trường
 local function OptimizeLighting()
     Lighting.GlobalShadows = false
     Lighting.FogEnd = 9e9
@@ -222,6 +222,7 @@ local function OptimizeLighting()
     end
 end
 
+-- 8.2. Hàm vô hiệu hóa render hiệu ứng
 local function DisableFX(v)
     if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
         v.Enabled = false
@@ -230,6 +231,7 @@ local function DisableFX(v)
     end
 end
 
+-- 8.3. Bắt sự kiện tạo Object mới trong Workspace
 Workspace.DescendantAdded:Connect(function(v)
     if IsFXCleanerEnabled() then
         DisableFX(v)
@@ -239,6 +241,7 @@ Workspace.DescendantAdded:Connect(function(v)
     end
 end)
 
+-- 8.4. Vòng lặp dọn dẹp FX ngầm
 task.spawn(function()
     OptimizeLighting()
     while task.wait(1) do
@@ -260,142 +263,63 @@ task.spawn(function()
 end)
 
 -- ====================================================================
--- 9. FAST ATTACK ENGINE (ĐÃ FIX HOÀN TOÀN BLADEM1 & ANIMATION THỪA)
+-- 9. FAST ATTACK ENGINE (TARGET BATCHING CHUẨN HUB LỚN)
 -- ====================================================================
-local CombatFramework = nil
-local activeController = nil
-
-task.spawn(function()
-    pcall(function()
-        local playerScripts = LocalPlayer:WaitForChild("PlayerScripts", 5)
-        if playerScripts then
-            local cfScript = playerScripts:WaitForChild("CombatFramework", 5)
-            if cfScript then
-                CombatFramework = require(cfScript)
-            end
-        end
-    end)
-end)
-
-local function GetActiveController()
-    if not CombatFramework then return nil end
-    pcall(function()
-        if debug and debug.getupvalues then
-            local upvalues = debug.getupvalues(CombatFramework)
-            if upvalues then
-                for _, v in pairs(upvalues) do
-                    if type(v) == "table" and rawget(v, "activeController") then
-                        activeController = v.activeController
-                        break
-                    end
-                end
-            end
-        end
-    end)
-    return activeController
-end
-
 local ATTACK_RADIUS = 60
-local comboCount = 1
 
 local function GetFastAttackTargets()
     local targets = {}
-    local primaryTarget = nil
-    local char, root = CharacterManager.Get()
-    if not char or not root then return nil, targets end
+    local char, root, hum = CharacterManager.Get()
+    if not char or not root then return targets end
 
     local myPos = root.Position
 
-    -- Quét quái (Enemies)
     if EnemiesFolder then
         for _, enemy in ipairs(EnemiesFolder:GetChildren()) do
-            local enemyHum = enemy:FindFirstChildOfClass("Humanoid")
             local enemyRoot = enemy:FindFirstChild("HumanoidRootPart") 
                                or enemy:FindFirstChild("UpperTorso") 
                                or enemy:FindFirstChild("Head")
+            local enemyHum = enemy:FindFirstChildOfClass("Humanoid")
 
-            if enemyHum and enemyHum.Health > 0 and enemyRoot then
-                if (enemyRoot.Position - myPos).Magnitude <= ATTACK_RADIUS then
-                    if not primaryTarget then primaryTarget = enemyRoot end
-                    table.insert(targets, enemyRoot)
+            if enemyRoot and enemyHum and enemyHum.Health > 0 then
+                local dist = (enemyRoot.Position - myPos).Magnitude
+                if dist <= ATTACK_RADIUS then
+                    -- Cấu trúc chuẩn của Blox Fruits Batch: {Model, TargetPart}
+                    table.insert(targets, {enemy, enemyRoot})
                 end
             end
         end
     end
 
-    -- Quét người chơi khác (PvP)
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character then
-            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-            if hum and hum.Health > 0 and hrp then
-                if (hrp.Position - myPos).Magnitude <= ATTACK_RADIUS then
-                    if not primaryTarget then primaryTarget = hrp end
-                    table.insert(targets, hrp)
-                end
-            end
-        end
-    end
-
-    return primaryTarget, targets
-end
-
--- Hàm dừng toàn bộ Animation đánh (Bao gồm BladeM1_1, BladeM1_2 & các chiêu vung kiếm)
-local function StopAttackAnimations(hum)
-    if not hum then return end
-    local animator = hum:FindFirstChildOfClass("Animator") or hum
-    for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-        local animName = track.Name:lower()
-        local animId = (track.Animation and track.Animation.AnimationId) or ""
-        
-        -- Lọc tên animation (BladeM1, M1, Attack, Slash, Swing, v.v.)
-        if animName:find("blade") or animName:find("m1") or animName:find("attack") 
-           or animName:find("slash") or animName:find("swing") 
-           or animId:find("1820228") then -- ID cụ thể của hệ thống BladeM1
-            track:Stop(0)
-        end
-    end
+    return targets
 end
 
 task.spawn(function()
     while true do
-        -- Delay tối ưu chống Lag Animation & Anti-Cheat
-        task.wait(0.025)
+        -- Tần số gửi gói tin tối ưu (tránh bị Kick/Rate-Limit)
+        local randomJitter = (math.random(-5, 5) / 1000)
+        local actualDelay = math.max(0, 0.015 + randomJitter)
+
+        task.wait(actualDelay)
 
         pcall(function()
             if Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
                 local char, root, hum = CharacterManager.Get()
                 if not char or not hum or hum.Health <= 0 then return end
 
+                -- Bắt buộc phải cầm vũ khí trên tay
                 local tool = char:FindFirstChildOfClass("Tool")
                 if not tool then return end
 
-                if not GetNetRemotes() then return end
+                -- Kiểm tra Net Module
+                if not GetNetModule() then return end
 
-                local primary, targets = GetFastAttackTargets()
-                if primary and #targets > 0 then
-                    -- 1. Reset Cooldown & Trạng thái từ CombatFramework
-                    local controller = GetActiveController()
-                    if controller then
-                        controller.timeToNextAttack = 0
-                        controller.timeToNextAttackHumanoid = 0
-                        controller.attacking = false
-                        controller.hitboxMagnitude = 60
-                        if type(controller.incrementFlags) == "function" then
-                            controller.incrementFlags = function() end
-                        end
-                    end
-
-                    -- 2. Đếm Combo xoay vòng (1 -> 2 -> 3 -> 4)
-                    comboCount = (comboCount % 4) + 1
-
-                    -- 3. Gửi Remote RegisterAttack & RegisterHit tính sát thương trực tiếp
-                    RegisterAttack:FireServer(0.01, comboCount)
-                    RegisterHit:FireServer(primary, targets)
-
-                    -- 4. Kích hoạt Tool & Tắt ngay lập tức mọi Animation dư thừa
-                    tool:Activate()
-                    StopAttackAnimations(hum)
+                local targets = GetFastAttackTargets()
+                if #targets > 0 then
+                    -- Gửi Vung Vũ Khí (0s Cooldown)
+                    RegisterAttack:FireServer(0)
+                    -- Gửi Hit Batch trúng toàn bộ mục tiêu trong tầm đánh cùng 1 lúc
+                    RegisterHit:FireServer(targets[1][2], targets)
                 end
             end
         end)
@@ -438,7 +362,7 @@ local function BuildUI()
     Tabs.Setting:AddSection("Fast Attack Engine")
     Tabs.Setting:AddToggle("FastAttack", {
         Title = "Fast Attack",
-        Description = "Kích hoạt đánh nhanh (Bản Tối Ưu BladeM1 & Delta)",
+        Description = "Kích hoạt đánh nhanh",
         Default = true
     })
 
