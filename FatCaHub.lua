@@ -73,6 +73,9 @@ local MapFolder = Workspace:WaitForChild("Map", 10)
 local SeaBeastsFolder = Workspace:FindFirstChild("SeaBeasts")
 local BoatsFolder = Workspace:FindFirstChild("Boats")
 
+local RegisterAttack = ReplicatedStorage:FindFirstChild("RegisterAttack", true)
+local RegisterHit = ReplicatedStorage:FindFirstChild("RegisterHit", true)
+
 -- ====================================================================
 -- 5. KHỞI TẠO FRAMEWORK FLUENT UI & TABS
 -- ====================================================================
