@@ -120,7 +120,7 @@ local DEFAULT_CONFIG = "BloxFruit_" .. LocalPlayer.Name
 local autoSaveActive = true
 
 -- ====================================================================
--- 7. CÁC HÀM HỖ TRỢ HOẠT ĐỘNG
+-- 7. CÁC HÀM HOẠT ĐỘNG CHÍNH
 -- ====================================================================
 LocalPlayer.Idled:Connect(function()
     if Fluent.Options and Fluent.Options.AntiAFK and Fluent.Options.AntiAFK.Value then
@@ -180,6 +180,91 @@ RunService.Stepped:Connect(function()
         end
     end)
 end)
+
+--. FAST ATTACK 
+local ATTACK_RADIUS = 60
+
+local function GetTargetsInRange()
+    local targets = {}
+    local char, root = CharacterManager.Get()
+    if not root then return targets end
+
+    local rootPos = root.Position
+
+    -- Lấy quái xung quanh
+    if EnemiesFolder then
+        for _, enemy in ipairs(EnemiesFolder:GetChildren()) do
+            local enemyHum = enemy:FindFirstChildOfClass("Humanoid")
+            local enemyPart = enemy:FindFirstChild("HumanoidRootPart") or enemy:FindFirstChild("UpperTorso") or enemy:FindFirstChild("Head")
+            if enemyHum and enemyHum.Health > 0 and enemyPart then
+                if (enemyPart.Position - rootPos).Magnitude <= ATTACK_RADIUS then
+                    table.insert(targets, {enemy, enemyPart})
+                end
+            end
+        end
+    end
+
+    -- Lấy người chơi xung quanh
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            if hum and hum.Health > 0 and hrp then
+                if (hrp.Position - rootPos).Magnitude <= ATTACK_RADIUS then
+                    table.insert(targets, {plr.Character, hrp})
+                end
+            end
+        end
+    end
+
+    return targets
+end
+
+-- Vòng lặp Fast Attack
+task.spawn(function()
+    while true do
+        task.wait(0.01)
+
+        pcall(function()
+            if Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
+                local char, root, hum = CharacterManager.Get()
+                if not char or not hum or hum.Health <= 0 then return end
+
+                local tool = char:FindFirstChildOfClass("Tool")
+                if not tool then return end
+
+                local targets = GetTargetsInRange()
+                if #targets > 0 then
+                    -- 1. Nếu tìm thấy RegisterAttack trực tiếp
+                    if RegisterAttack then
+                        RegisterAttack:FireServer(0.1)
+                    end
+
+                    -- 2. Nếu tìm thấy RegisterHit trực tiếp
+                    if RegisterHit then
+                        for _, targetData in ipairs(targets) do
+                            RegisterHit:FireServer(targetData[2], {targetData[1]})
+                        end
+                    else
+                        -- Dự phòng nếu Remote bị đổi tên
+                        tool:Activate()
+                    end
+
+                    -- 3. Xóa animation delay vung tay
+                    for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
+                        if track.Animation and (
+                            track.Animation.AnimationId:find("attack") or 
+                            track.Animation.AnimationId:find("slash") or 
+                            track.Animation.AnimationId:find("swing")
+                        ) then
+                            track:Stop()
+                        end
+                    end
+                end
+            end
+        end)
+    end
+end)
 -- ====================================================================
 -- 8. XÂY DỰNG GIAO DIỆN CHỨC NĂNG CHÍNH (BUILD REAL UI ELEMENTS)
 -- ====================================================================
@@ -210,6 +295,11 @@ local function BuildUI()
                 Duration = 5
             })
         end
+    })
+    Tabs.Setting:AddToggle("FastAttack", {
+        Title = "Fast Attack",
+        Description = "",
+        Default = true
     })
     Tabs.Setting:AddToggle("AutoBuso", {
         Title = "Auto Turn On Buso",
