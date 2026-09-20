@@ -16,7 +16,6 @@ local PathfindingService = game:GetService("PathfindingService")
 local GuiService = game:GetService("GuiService")
 local TeleportService = game:GetService("TeleportService")
 local UserInputService = game:GetService("UserInputService")
-local VirtualInputManager = game:GetService("VirtualInputManager")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local Lighting = game:GetService("Lighting")
 
@@ -61,7 +60,7 @@ function CharacterManager.Get()
 end
 
 -- ====================================================================
--- 4. REMOTES & THƯ MỤC BLOX FRUITS (TÌM TRỰC TIẾP REMOTE)
+-- 4. REMOTES & THƯ MỤC BLOX FRUITS
 -- ====================================================================
 local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
 local CommF = Remotes and Remotes:WaitForChild("CommF_", 10)
@@ -73,7 +72,6 @@ local MapFolder = Workspace:WaitForChild("Map", 10)
 local SeaBeastsFolder = Workspace:FindFirstChild("SeaBeasts")
 local BoatsFolder = Workspace:FindFirstChild("Boats")
 
--- Quét đệ quy tìm trực tiếp RemoteEvent đòn đánh
 local RegisterAttack = ReplicatedStorage:FindFirstChild("RegisterAttack", true)
 local RegisterHit = ReplicatedStorage:FindFirstChild("RegisterHit", true)
 
@@ -86,7 +84,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 
 local Window = Fluent:CreateWindow({
     Title = "Fat Cat Hub",
-    SubTitle = "v2.5 Direct Remote Edition | Sea " .. tostring(currentSea),
+    SubTitle = "v2.5 Full Edition | Sea " .. tostring(currentSea),
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 320),
     Acrylic = true,
@@ -121,7 +119,125 @@ local DEFAULT_CONFIG = "BloxFruit_" .. LocalPlayer.Name
 local autoSaveActive = true
 
 -- ====================================================================
--- 7. CÁC HÀM HỖ TRỢ HOẠT ĐỘNG & FAST ATTACK ENGINE
+-- 7. ADVANCED FAST ATTACK ENGINE (COMBAT FRAMEWORK HOOK)
+-- ====================================================================
+local CombatFramework = nil
+local activeController = nil
+
+task.spawn(function()
+    pcall(function()
+        local playerScripts = LocalPlayer:WaitForChild("PlayerScripts", 5)
+        if playerScripts then
+            local cfScript = playerScripts:WaitForChild("CombatFramework", 5)
+            if cfScript then
+                CombatFramework = require(cfScript)
+            end
+        end
+    end)
+end)
+
+local function GetActiveController()
+    if not CombatFramework then return nil end
+    pcall(function()
+        if debug and debug.getupvalues then
+            local upvalues = debug.getupvalues(CombatFramework)
+            if upvalues and upvalues[2] then
+                activeController = upvalues[2].activeController
+            end
+        end
+    end)
+    return activeController
+end
+
+local ATTACK_RADIUS = 60
+
+local function GetBatchedTargets()
+    local targets = {}
+    local primaryTarget = nil
+    local char, root = CharacterManager.Get()
+    if not root then return nil, targets end
+
+    local rootPos = root.Position
+
+    if EnemiesFolder then
+        for _, enemy in ipairs(EnemiesFolder:GetChildren()) do
+            local enemyHum = enemy:FindFirstChildOfClass("Humanoid")
+            local enemyPart = enemy:FindFirstChild("HumanoidRootPart") or enemy:FindFirstChild("UpperTorso") or enemy:FindFirstChild("Head")
+            if enemyHum and enemyHum.Health > 0 and enemyPart then
+                if (enemyPart.Position - rootPos).Magnitude <= ATTACK_RADIUS then
+                    if not primaryTarget then primaryTarget = enemyPart end
+                    table.insert(targets, enemyPart)
+                end
+            end
+        end
+    end
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            if hum and hum.Health > 0 and hrp then
+                if (hrp.Position - rootPos).Magnitude <= ATTACK_RADIUS then
+                    if not primaryTarget then primaryTarget = hrp end
+                    table.insert(targets, hrp)
+                end
+            end
+        end
+    end
+
+    return primaryTarget, targets
+end
+
+task.spawn(function()
+    while true do
+        task.wait(0.015) -- Tần suất ~60 đợt/giây
+
+        pcall(function()
+            if Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
+                local char, root, hum = CharacterManager.Get()
+                if not char or not hum or hum.Health <= 0 then return end
+
+                local tool = char:FindFirstChildOfClass("Tool")
+                if not tool then return end
+
+                local primary, batchedList = GetBatchedTargets()
+                if primary and #batchedList > 0 then
+                    -- 1. Hook trực tiếp CombatFramework nâng cao
+                    local controller = GetActiveController()
+                    if controller then
+                        controller.timeToNextAttack = 0
+                        controller.attacking = false
+                        controller.hitboxMagnitude = 60
+                        controller.incrementFlags = function() end
+                    end
+
+                    -- 2. Gửi Hit Batching gói tin tối ưu
+                    local regAttack = RegisterAttack or ReplicatedStorage:FindFirstChild("RegisterAttack", true)
+                    local regHit = RegisterHit or ReplicatedStorage:FindFirstChild("RegisterHit", true)
+
+                    if regAttack then
+                        regAttack:FireServer(0.1)
+                    end
+
+                    if regHit then
+                        regHit:FireServer(primary, batchedList)
+                    end
+
+                    -- 3. Triệt tiêu hoạt ảnh vung tay giảm độ trễ
+                    for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
+                        local animId = track.Animation and track.Animation.AnimationId
+                        if animId and (animId:find("attack") or animId:find("slash") or animId:find("swing")) then
+                            track:Stop()
+                        end
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- ====================================================================
+-- 8. CÁC HÀM HỖ TRỢ HOẠT ĐỘNG KHÁC
 -- ====================================================================
 LocalPlayer.Idled:Connect(function()
     if Fluent.Options and Fluent.Options.AntiAFK and Fluent.Options.AntiAFK.Value then
@@ -182,121 +298,27 @@ RunService.Stepped:Connect(function()
     end)
 end)
 
-----------------------------------------------------------------------
--- FAST ATTACK DIRECT REMOTE (KHÔNG MODULE NET - KHÔNG CLICK V1)
-----------------------------------------------------------------------
-local ATTACK_RADIUS = 55
-
-local function GetTargetsInRange()
-    local targets = {}
-    local char, root = CharacterManager.Get()
-    if not root then return targets end
-
-    local rootPos = root.Position
-
-    -- Quét quái vật
-    if EnemiesFolder then
-        for _, enemy in ipairs(EnemiesFolder:GetChildren()) do
-            local hum = enemy:FindFirstChildOfClass("Humanoid")
-            local enemyPart = enemy:FindFirstChild("HumanoidRootPart") or enemy:FindFirstChild("UpperTorso") or enemy:FindFirstChild("Head")
-            if hum and hum.Health > 0 and enemyPart then
-                if (enemyPart.Position - rootPos).Magnitude <= ATTACK_RADIUS then
-                    table.insert(targets, {enemy, enemyPart})
-                end
-            end
-        end
-    end
-
-    -- Quét người chơi khác
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character then
-            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-            if hum and hum.Health > 0 and hrp then
-                if (hrp.Position - rootPos).Magnitude <= ATTACK_RADIUS then
-                    table.insert(targets, {plr.Character, hrp})
-                end
-            end
-        end
-    end
-
-    return targets
-end
-
--- Vòng lặp thực thi Fast Attack
-task.spawn(function()
-    while true do
-        task.wait(0.015)
-
-        pcall(function()
-            if Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
-                local char, root, hum = CharacterManager.Get()
-                if not char or not hum or hum.Health <= 0 then return end
-
-                local tool = char:FindFirstChildOfClass("Tool")
-                if not tool then return end -- Phải đang cầm vũ khí
-
-                -- Tự tìm lại Remote nếu ban đầu chưa nhận diện được
-                if not RegisterAttack then
-                    RegisterAttack = ReplicatedStorage:FindFirstChild("RegisterAttack", true)
-                end
-                if not RegisterHit then
-                    RegisterHit = ReplicatedStorage:FindFirstChild("RegisterHit", true)
-                end
-
-                local targets = GetTargetsInRange()
-                if #targets > 0 then
-                    -- 1. Gửi gói tin RegisterAttack trực tiếp
-                    if RegisterAttack then
-                        RegisterAttack:FireServer(0.1)
-                    end
-
-                    -- 2. Gửi gói tin RegisterHit trực tiếp cho danh sách mục tiêu
-                    if RegisterHit then
-                        for _, targetData in ipairs(targets) do
-                            local enemyChar = targetData[1]
-                            local enemyPart = targetData[2]
-                            RegisterHit:FireServer(enemyPart, {enemyChar})
-                        end
-                    end
-
-                    -- 3. Hủy Animation vung tay để tránh delay Client
-                    for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
-                        if track.Animation then
-                            local animId = track.Animation.AnimationId:lower()
-                            if animId:find("attack") or animId:find("slash") or animId:find("swing") or animId:find("sword") then
-                                track:Stop(0)
-                            end
-                        end
-                    end
-                end
-            end
-        end)
-    end
-end)
-
 -- ====================================================================
--- 8. XÂY DỰNG GIAO DIỆN CHỨC NĂNG CHÍNH (BUILD REAL UI ELEMENTS)
+-- 9. XÂY DỰNG GIAO DIỆN CHỨC NĂNG CHÍNH (BUILD REAL UI ELEMENTS)
 -- ====================================================================
 local function BuildUI()
-    -- TAB FARM
-    Tabs.Farm:AddSection("Fast Attack Engine")
-    Tabs.Farm:AddToggle("FastAttack", {
-        Title = "Fast Attack (Direct Remote)",
-        Description = "Tự gửi Remote trực tiếp Server (Không dùng Net / Không Click v1)",
-        Default = true
-    })
-
     -- TAB TELEPORT & PvP
     Tabs.TeleportPvP:AddSection("PvP")
     Tabs.TeleportPvP:AddToggle("Noclip", {
         Title = "No Clip",
-        Description = "Xuyên qua mọi vật cản",
+        Description = "",
         Default = false
     })
 
     -- TAB SETTING
-    Tabs.Setting:AddSection("Config")
+    Tabs.Setting:AddSection("Fast Attack & Combat")
+    Tabs.Setting:AddToggle("FastAttack", {
+        Title = "Fast Attack (CombatFramework)",
+        Description = "Đánh siêu nhanh bằng cơ chế Hook + Batching",
+        Default = true
+    })
+
+    Tabs.Setting:AddSection("Config Management")
     Tabs.Setting:AddButton({
         Title = "Reset Config",
         Description = "Delete saved configuration file",
@@ -316,17 +338,18 @@ local function BuildUI()
         end
     })
 
-    Tabs.Setting:AddSection("Automation Flags")
     Tabs.Setting:AddToggle("AutoBuso", {
         Title = "Auto Turn On Buso",
         Description = "",
         Default = true
     })
+
     Tabs.Setting:AddToggle("AutoKen", {
         Title = "Auto Turn On Ken",
         Description = "",
         Default = true
     })
+
     Tabs.Setting:AddToggle("AntiAFK", {
         Title = "Anti AFK",
         Description = "",
@@ -335,7 +358,7 @@ local function BuildUI()
 end
 
 -- ====================================================================
--- 9. QUẢN LÝ CẤU HÌNH & TỰ ĐỘNG LƯU (SAVE MANAGER & CONFIG)
+-- 10. QUẢN LÝ CẤU HÌNH & TỰ ĐỘNG LƯU (SAVE MANAGER & CONFIG)
 -- ====================================================================
 local function SetupConfigManager()
     SaveManager:SetLibrary(Fluent)
@@ -345,9 +368,11 @@ local function SetupConfigManager()
     SaveManager:IgnoreThemeSettings()
     SaveManager:SetIgnoreIndexes({})
     InterfaceManager:BuildInterfaceSection(Tabs.Setting)
+
     pcall(function()
         SaveManager:Load(DEFAULT_CONFIG)
     end)
+
     local saveThread = nil
     local function RequestAutoSave()
         if not autoSaveActive then return end
@@ -359,6 +384,7 @@ local function SetupConfigManager()
             end)
         end)
     end
+
     task.defer(function()
         for _, option in pairs(Fluent.Options) do
             if type(option) == "table" and typeof(option.OnChanged) == "function" then
@@ -371,7 +397,7 @@ local function SetupConfigManager()
 end
 
 -- ====================================================================
--- 10. THỰC THI KHỞI CHẠY HỆ THỐNG
+-- 11. THỰC THI KHỞI CHẠY HỆ THỐNG
 -- ====================================================================
 BuildUI()
 SetupConfigManager()
@@ -380,6 +406,6 @@ Window:SelectTab(1)
 
 Fluent:Notify({
     Title = "Fat Cat Hub",
-    Content = "Fat Cat Hub v2.5 (Direct Remote) - Tải Hoàn Tất!",
+    Content = "Fat Cat Hub v2.5 - Tải Hoàn Tất!",
     Duration = 5
 })
