@@ -26,7 +26,7 @@ local ParentGui = (gethui and gethui()) or CoreGui
 -- 2. KIỂM TRA MAP & SEA CHECK 
 -- ====================================================================
 local MAP_SEAS = {
-    [2753915549] = 1,  -- Sea 1
+    [2753915549] = 1,      -- Sea 1
     [79091703265657] = 2,  -- Sea 2
     [100117331123089] = 3   -- Sea 3
 }
@@ -296,10 +296,8 @@ end
 
 task.spawn(function()
     while true do
-        -- Tần số gửi gói tin tối ưu (tránh bị Kick/Rate-Limit)
-        local randomJitter = (math.random(-5, 5) / 1000)
-        local actualDelay = 0.015 + (math.random(-2, 5) / 1000)
-        task.wait(actualDelay)
+        -- Delay động ngẫu nhiên (13ms - 20ms) giúp đánh cực nhanh và chống bị Kick/Rate-Limit
+        task.wait(0.015 + (math.random(-2, 5) / 1000))
 
         pcall(function()
             if Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
