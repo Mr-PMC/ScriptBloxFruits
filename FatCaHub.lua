@@ -26,7 +26,7 @@ local ParentGui = (gethui and gethui()) or CoreGui
 -- 2. KIỂM TRA MAP & SEA CHECK 
 -- ====================================================================
 local MAP_SEAS = {
-    [2753915549] = 1,  -- Sea 1
+    [2753915549] = 1,      -- Sea 1
     [79091703265657] = 2,  -- Sea 2
     [100117331123089] = 3   -- Sea 3
 }
@@ -260,7 +260,7 @@ task.spawn(function()
 end)
 
 -- ====================================================================
--- 9. FAST ATTACK ENGINE 
+-- 9. FAST ATTACK ENGINE (ĐÃ FIX HOÀN TOÀN BLADEM1 & ANIMATION THỪA)
 -- ====================================================================
 local CombatFramework = nil
 local activeController = nil
@@ -340,11 +340,27 @@ local function GetFastAttackTargets()
     return primaryTarget, targets
 end
 
+-- Hàm dừng toàn bộ Animation đánh (Bao gồm BladeM1_1, BladeM1_2 & các chiêu vung kiếm)
+local function StopAttackAnimations(hum)
+    if not hum then return end
+    local animator = hum:FindFirstChildOfClass("Animator") or hum
+    for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+        local animName = track.Name:lower()
+        local animId = (track.Animation and track.Animation.AnimationId) or ""
+        
+        -- Lọc tên animation (BladeM1, M1, Attack, Slash, Swing, v.v.)
+        if animName:find("blade") or animName:find("m1") or animName:find("attack") 
+           or animName:find("slash") or animName:find("swing") 
+           or animId:find("1820228") then -- ID cụ thể của hệ thống BladeM1
+            track:Stop(0)
+        end
+    end
+end
+
 task.spawn(function()
     while true do
-        -- TẠO DELAY NGẪU NHIÊN TRONG KHOẢNG 0.01s - 0.5s CHỐNG ANTI-CHEAT
-        local randomDelay = math.random(10, 500) / 1000
-        task.wait(randomDelay)
+        -- Delay tối ưu chống Lag Animation & Anti-Cheat
+        task.wait(0.025)
 
         pcall(function()
             if Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
@@ -358,10 +374,11 @@ task.spawn(function()
 
                 local primary, targets = GetFastAttackTargets()
                 if primary and #targets > 0 then
-                    -- 1. Reset Cooldown từ CombatFramework
+                    -- 1. Reset Cooldown & Trạng thái từ CombatFramework
                     local controller = GetActiveController()
                     if controller then
                         controller.timeToNextAttack = 0
+                        controller.timeToNextAttackHumanoid = 0
                         controller.attacking = false
                         controller.hitboxMagnitude = 60
                         if type(controller.incrementFlags) == "function" then
@@ -372,20 +389,13 @@ task.spawn(function()
                     -- 2. Đếm Combo xoay vòng (1 -> 2 -> 3 -> 4)
                     comboCount = (comboCount % 4) + 1
 
-                    -- 3. Gửi Remote RegisterAttack chuẩn tham số Logged
+                    -- 3. Gửi Remote RegisterAttack & RegisterHit tính sát thương trực tiếp
                     RegisterAttack:FireServer(0.01, comboCount)
-
-                    -- 4. Gửi Remote RegisterHit sát thương diện rộng
                     RegisterHit:FireServer(primary, targets)
 
-                    -- 5. Kích hoạt Tool & Tắt Animation đao để mượt game
+                    -- 4. Kích hoạt Tool & Tắt ngay lập tức mọi Animation dư thừa
                     tool:Activate()
-                    for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
-                        local animId = track.Animation and track.Animation.AnimationId
-                        if animId and (animId:find("attack") or animId:find("slash") or animId:find("swing")) then
-                            track:Stop()
-                        end
-                    end
+                    StopAttackAnimations(hum)
                 end
             end
         end)
@@ -428,7 +438,7 @@ local function BuildUI()
     Tabs.Setting:AddSection("Fast Attack Engine")
     Tabs.Setting:AddToggle("FastAttack", {
         Title = "Fast Attack",
-        Description = "Kích hoạt đánh nhanh (Bản Tối Ưu Delta)",
+        Description = "Kích hoạt đánh nhanh (Bản Tối Ưu BladeM1 & Delta)",
         Default = true
     })
 
