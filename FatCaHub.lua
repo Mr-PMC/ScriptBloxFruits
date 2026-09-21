@@ -200,70 +200,9 @@ RunService.Stepped:Connect(function()
     end)
 end)
 
--- ====================================================================
--- 8. TỐI ƯU HÓA HIỆU ỨNG (FX CLEANER & FPS BOOST)
--- ====================================================================
-
-local function IsFXCleanerEnabled()
-    return Fluent 
-       and Fluent.Options 
-       and Fluent.Options.RemoveAttackFX 
-       and Fluent.Options.RemoveAttackFX.Value
-end
-
--- 8.1. Tối ưu Lighting & Môi trường
-local function OptimizeLighting()
-    Lighting.GlobalShadows = false
-    Lighting.FogEnd = 9e9
-    for _, v in ipairs(Lighting:GetChildren()) do
-        if v:IsA("PostEffect") or v:IsA("Atmosphere") then
-            v.Enabled = false
-        end
-    end
-end
-
--- 8.2. Hàm vô hiệu hóa render hiệu ứng
-local function DisableFX(v)
-    if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
-        v.Enabled = false
-    elseif v:IsA("Decal") or v:IsA("Texture") then
-        v.Texture = ""
-    end
-end
-
--- 8.3. Bắt sự kiện tạo Object mới trong Workspace
-Workspace.DescendantAdded:Connect(function(v)
-    if IsFXCleanerEnabled() then
-        DisableFX(v)
-        if v:IsA("BillboardGui") and (v.Name == "Damage" or v.Name:find("Damage") or v.Name == "DamageCounter") then
-            v.Enabled = false
-        end
-    end
-end)
-
--- 8.4. Vòng lặp dọn dẹp FX ngầm
-task.spawn(function()
-    OptimizeLighting()
-    while task.wait(1) do
-        if IsFXCleanerEnabled() then
-            pcall(function()
-                local fxFolder = Workspace:FindFirstChild("FX")
-                if fxFolder then
-                    fxFolder:ClearAllChildren()
-                end
-
-                for _, v in ipairs(Camera:GetChildren()) do
-                    if v:IsA("Model") or v:IsA("Part") then
-                        DisableFX(v)
-                    end
-                end
-            end)
-        end
-    end
-end)
 
 -- ====================================================================
--- 9. FAST ATTACK ENGINE (TARGET BATCHING CHUẨN HUB LỚN)
+-- 9. FAST ATTACK ENGINE (QUÉT NPC + QUÉT PLAYER TRỰC TIẾP)
 -- ====================================================================
 local ATTACK_RADIUS = 60
 
@@ -274,6 +213,7 @@ local function GetFastAttackTargets()
 
     local myPos = root.Position
 
+    -- 1. Quét NPC / Quái vật
     if EnemiesFolder then
         for _, enemy in ipairs(EnemiesFolder:GetChildren()) do
             local enemyRoot = enemy:FindFirstChild("HumanoidRootPart") 
@@ -284,8 +224,25 @@ local function GetFastAttackTargets()
             if enemyRoot and enemyHum and enemyHum.Health > 0 then
                 local dist = (enemyRoot.Position - myPos).Magnitude
                 if dist <= ATTACK_RADIUS then
-                    -- Cấu trúc chuẩn của Blox Fruits Batch: {Model, TargetPart}
                     table.insert(targets, {enemy, enemyRoot})
+                end
+            end
+        end
+    end
+
+    -- 2. Tự động quét người chơi khác trong tầm đánh
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            local pChar = plr.Character
+            local pRoot = pChar:FindFirstChild("HumanoidRootPart") 
+                           or pChar:FindFirstChild("UpperTorso") 
+                           or pChar:FindFirstChild("Head")
+            local pHum = pChar:FindFirstChildOfClass("Humanoid")
+
+            if pRoot and pHum and pHum.Health > 0 then
+                local dist = (pRoot.Position - myPos).Magnitude
+                if dist <= ATTACK_RADIUS then
+                    table.insert(targets, {pChar, pRoot})
                 end
             end
         end
@@ -296,7 +253,6 @@ end
 
 task.spawn(function()
     while true do
-        -- Delay động ngẫu nhiên (13ms - 20ms) giúp đánh cực nhanh và chống bị Kick/Rate-Limit
         task.wait(0.015 + (math.random(-2, 5) / 1000))
 
         pcall(function()
@@ -304,18 +260,14 @@ task.spawn(function()
                 local char, root, hum = CharacterManager.Get()
                 if not char or not hum or hum.Health <= 0 then return end
 
-                -- Bắt buộc phải cầm vũ khí trên tay
                 local tool = char:FindFirstChildOfClass("Tool")
                 if not tool then return end
 
-                -- Kiểm tra Net Module
                 if not GetNetModule() then return end
 
                 local targets = GetFastAttackTargets()
                 if #targets > 0 then
-                    -- Gửi Vung Vũ Khí (0s Cooldown)
                     RegisterAttack:FireServer(0)
-                    -- Gửi Hit Batch trúng toàn bộ mục tiêu trong tầm đánh cùng 1 lúc
                     RegisterHit:FireServer(targets[1][2], targets)
                 end
             end
@@ -359,16 +311,10 @@ local function BuildUI()
     Tabs.Setting:AddSection("Fast Attack Engine")
     Tabs.Setting:AddToggle("FastAttack", {
         Title = "Fast Attack",
-        Description = "Kích hoạt đánh nhanh",
+        Description = "Kích hoạt đánh nhanh (Bao gồm NPC & Player trong tầm)",
         Default = true
     })
 
-    Tabs.Setting:AddSection("Performance")
-    Tabs.Setting:AddToggle("RemoveAttackFX", {
-        Title = "Remove Attack FX (FPS Boost)",
-        Description = "Tắt vệt chém, hiệu ứng nổ, số dame & rung màn hình",
-        Default = true
-    })
 
     Tabs.Setting:AddSection("Automation & Protection")
     Tabs.Setting:AddToggle("AutoBuso", {
