@@ -263,7 +263,74 @@ end
 
 
 
+-- ====================================================================
+-- 8. TỐI ƯU HÓA HIỆU ỨNG (FX CLEANER & FPS BOOST)
+-- ====================================================================
 
+local function IsFXCleanerEnabled()
+    return Fluent 
+       and Fluent.Options 
+       and Fluent.Options.RemoveAttackFX 
+       and Fluent.Options.RemoveAttackFX.Value
+end
+
+-- 8.1. Tối ưu Lighting & Môi trường
+local function OptimizeLighting()
+    Lighting.GlobalShadows = false
+    Lighting.FogEnd = 9e9
+    for _, v in ipairs(Lighting:GetChildren()) do
+        if v:IsA("PostEffect") or v:IsA("Atmosphere") then
+            v.Enabled = false
+        end
+    end
+end
+
+-- 8.2. Hàm vô hiệu hóa render hiệu ứng
+local function DisableFX(v)
+    if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
+        v.Enabled = false
+    elseif v:IsA("Decal") or v:IsA("Texture") then
+        v.Texture = ""
+    end
+end
+
+-- 8.3. Bắt sự kiện tạo Object mới trong Workspace
+Workspace.DescendantAdded:Connect(function(v)
+    if IsFXCleanerEnabled() then
+        DisableFX(v)
+        if v:IsA("BillboardGui") and (v.Name == "Damage" or v.Name:find("Damage") or v.Name == "DamageCounter") then
+            v.Enabled = false
+        end
+    end
+end)
+
+-- 8.4. Vòng lặp dọn dẹp FX ngầm
+task.spawn(function()
+    OptimizeLighting()
+    while task.wait(1) do
+        if IsFXCleanerEnabled() then
+            pcall(function()
+                local fxFolder = Workspace:FindFirstChild("FX")
+                if fxFolder then
+                    fxFolder:ClearAllChildren()
+                end
+
+                for _, v in ipairs(Camera:GetChildren()) do
+                    if v:IsA("Model") or v:IsA("Part") then
+                        DisableFX(v)
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+    Tabs.Setting:AddSection("Performance")
+    Tabs.Setting:AddToggle("RemoveAttackFX", {
+        Title = "Remove Attack FX (FPS Boost)",
+        Description = "Tắt vệt chém, hiệu ứng nổ, số dame & rung màn hình",
+        Default = true
+    })
 
 
 
