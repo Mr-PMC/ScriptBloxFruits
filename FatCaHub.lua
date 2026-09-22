@@ -67,7 +67,6 @@ local CommE = Remotes and Remotes:WaitForChild("CommE", 10)
 local EnemiesFolder = Workspace:WaitForChild("Enemies", 10)
 local NPCsFolder = Workspace:WaitForChild("NPCs", 10)
 
--- Lấy trực tiếp từ ReplicatedStorage.Modules.Net
 local ModulesFolder = ReplicatedStorage:WaitForChild("Modules", 10)
 local NetFolder = ModulesFolder and ModulesFolder:WaitForChild("Net", 10)
 
@@ -234,7 +233,7 @@ task.spawn(function()
 end)
 
 -- ====================================================================
--- 8. FAST ATTACK ENGINE (GẮN SYSTEM LOG CHI TIẾT ĐỂ SOI NGUYÊN NHÂN LỖI)
+-- 8. FAST ATTACK ENGINE (CHUẨN XỬ LÝ 2 MỤC TIÊU & SÚNG SILENT AIM)
 -- ====================================================================
 local CombatFramework = nil
 local activeController = nil
@@ -269,15 +268,40 @@ local function GetActiveController()
     return activeController
 end
 
-local ATTACK_RADIUS = 55
-local MAX_TARGETS = 10
 local comboCount = 1
 
-local function GetFastAttackTargets()
+-- Triệt tiêu Animation
+local function SuppressAnimations()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        local animator = hum:FindFirstChildOfClass("Animator")
+        if animator then
+            for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+                track:Stop(0)
+            end
+        end
+    end
+end
+
+-- Bán kính quét theo loại vũ khí
+local function GetWeaponAttackRadius(toolType)
+    if toolType == "Melee" or toolType == "Sword" then
+        return 58
+    elseif toolType == "Blox Fruit" then
+        return 35
+    elseif toolType == "Gun" then
+        return 80
+    end
+    return 35
+end
+
+-- Quét tất cả quái trong tầm đánh
+local function GetAllTargetsInRadius(radius)
     local targets = {}
-    local primaryTarget = nil
     local char, root = CharacterManager.Get()
-    if not char or not root then return nil, targets end
+    if not char or not root then return targets end
     local myPos = root.Position
 
     if EnemiesFolder then
@@ -288,11 +312,8 @@ local function GetFastAttackTargets()
                                or enemy:FindFirstChild("Head")
 
             if enemyHum and enemyHum.Health > 0 and enemyRoot then
-                if (enemyRoot.Position - myPos).Magnitude <= ATTACK_RADIUS then
-                    if not primaryTarget then primaryTarget = enemyRoot end
-                    if #targets < MAX_TARGETS then
-                        table.insert(targets, enemyRoot)
-                    end
+                if (enemyRoot.Position - myPos).Magnitude <= radius then
+                    table.insert(targets, enemyRoot)
                 end
             end
         end
@@ -303,27 +324,40 @@ local function GetFastAttackTargets()
             local hum = plr.Character:FindFirstChildOfClass("Humanoid")
             local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
             if hum and hum.Health > 0 and hrp then
-                if (hrp.Position - myPos).Magnitude <= ATTACK_RADIUS then
-                    if not primaryTarget then primaryTarget = hrp end
-                    if #targets < MAX_TARGETS then
-                        table.insert(targets, hrp)
-                    end
+                if (hrp.Position - myPos).Magnitude <= radius then
+                    table.insert(targets, hrp)
                 end
             end
         end
     end
 
-    return primaryTarget, targets
+    return targets
 end
 
--- Vòng lặp Fast Attack tích hợp Diagnostic Logger
+-- Xử lý Súng Auto-Shoot + Silent Aim
+local function ProcessGunAttack(tool, primaryTarget)
+    if not tool or not primaryTarget then return end
+    
+    local gunRemote = tool:FindFirstChild("GunFunction") 
+                   or tool:FindFirstChild("RemoteEvent") 
+                   or tool:FindFirstChildOfClass("RemoteEvent")
+                   
+    if gunRemote then
+        gunRemote:FireServer(primaryTarget.Position)
+    else
+        tool:Activate()
+    end
+    SuppressAnimations()
+end
+
+-- Vòng lặp Fast Attack Engine
 task.spawn(function()
     print("--------------------------------------------------")
-    print("[FAT CAT HUB] 🚀 Đã bật Logger soi dữ liệu Fast Attack!")
+    print("[FAT CAT HUB] 🚀 Fast Attack Engine Loaded (Multi-Target Fix)!")
     print("--------------------------------------------------")
 
     while true do
-        local currentDelay = math.random(110, 150) / 1000
+        local currentDelay = math.random(100, 120) / 1000
         task.wait(currentDelay)
 
         pcall(function()
@@ -334,61 +368,46 @@ task.spawn(function()
                 local tool = char:FindFirstChildOfClass("Tool")
                 if not tool then return end
 
-                local toolType = (tool.ToolTip and tool.ToolTip ~= "") and tool.ToolTip or "Khong Co ToolTip"
-                local primary, targets = GetFastAttackTargets()
+                local toolType = (tool.ToolTip and tool.ToolTip ~= "") and tool.ToolTip or "Melee"
+                local attackRadius = GetWeaponAttackRadius(toolType)
+                local allTargets = GetAllTargetsInRadius(attackRadius)
 
-                if not primary or #targets == 0 then return end
+                if #allTargets == 0 then return end
 
-                local targetName = primary.Parent and primary.Parent.Name or "Unknown Target"
-                local dist = math.floor((primary.Position - root.Position).Magnitude)
-                local controller = GetActiveController()
-                local maxCombo = 4
+                if toolType == "Gun" then
+                    -- Súng đánh mục tiêu đầu tiên
+                    ProcessGunAttack(tool, allTargets[1])
+                else
+                    local controller = GetActiveController()
+                    local maxCombo = 4
 
-                if controller then
-                    controller.timeToNextAttack = 0
-                    controller.attacking = false
-                    controller.hitboxMagnitude = ATTACK_RADIUS
-                    maxCombo = rawget(controller, "maxCombo") or controller.maxHits or 4
-                end
-
-                comboCount = (comboCount % maxCombo) + 1
-
-                -- 1. PRINT LOG THÔNG SỐ VŨ KHÍ & MỤC TIÊU
-                print(string.format(
-                    "\n[FAT CAT DIAGNOSTIC - %s]\n" ..
-                    " 🎒 Tên Vũ Khí: %s | ToolTip (Loại): %s\n" ..
-                    " 🎯 Mục tiêu: %s | Khoảng cách: %d studs\n" ..
-                    " 👥 Số lượng mục tiêu nhận sát thương: %d\n" ..
-                    " ⚡ Combo Hit: %d/%d | Delay: %.3fs\n" ..
-                    " 📡 Net Remotes Available: %s",
-                    os.date("%X"),
-                    tool.Name, toolType,
-                    targetName, dist,
-                    #targets,
-                    comboCount, maxCombo, currentDelay,
-                    GetNetRemotes() and "Co (Ready)" or "Khong (Missing)"
-                ))
-
-                -- 2. THỬ BẮN REMOTE VÀ LOG KẾT QUẢ GỬI PACKET
-                if GetNetRemotes() then
-                    local attackOk, errAttack = pcall(function()
-                        RegisterAttack:FireServer(currentDelay, comboCount)
-                    end)
-
-                    local hitOk, errHit = pcall(function()
-                        RegisterHit:FireServer(primary, targets)
-                    end)
-
-                    if attackOk and hitOk then
-                        print(string.format(" 🟢 Gửi thành công RegisterAttack & RegisterHit cho [%s]", toolType))
-                    else
-                        warn(string.format(" 🔴 LỖI GỬI REMOTE: AttackErr: %s | HitErr: %s", tostring(errAttack), tostring(errHit)))
+                    if controller then
+                        controller.timeToNextAttack = 0
+                        controller.attacking = false
+                        controller.hitboxMagnitude = attackRadius
+                        maxCombo = rawget(controller, "maxCombo") or controller.maxHits or 4
                     end
-                end
 
-                -- 3. KÍCH HOẠT VŨ KHÍ
-                tool:Activate()
-                print(" 🗡️ Đã gọi tool:Activate()")
+                    comboCount = (comboCount % maxCombo) + 1
+
+                    -- CHIA BATCH: Tối đa 2 mục tiêu cho mỗi packet RegisterHit
+                    if GetNetRemotes() then
+                        for i = 1, #allTargets, 2 do
+                            local batch = {}
+                            table.insert(batch, allTargets[i])
+                            if allTargets[i + 1] then
+                                table.insert(batch, allTargets[i + 1])
+                            end
+
+                            local primary = batch[1]
+                            RegisterAttack:FireServer(currentDelay, comboCount)
+                            -- Gửi đúng mảng 2 mục tiêu để Server vượt qua bước Validation
+                            RegisterHit:FireServer(primary, batch)
+                        end
+                    end
+
+                    tool:Activate()
+                end
             end
         end)
     end
