@@ -23,10 +23,11 @@ local Lighting = game:GetService("Lighting")
 local ParentGui = (gethui and gethui()) or CoreGui
 
 -- ====================================================================
--- 2. KIỂM TRA MAP & SEA CHECK 
+-- 2. KIỂM TRA MAP & SEA CHECK
 -- ====================================================================
 local MAP_SEAS = {
     [2753915549] = 1,      -- Sea 1
+    [85211729168715] = 1,  -- Sea 1 Sub-place
     [79091703265657] = 2,  -- Sea 2
     [100117331123089] = 3   -- Sea 3
 }
@@ -36,10 +37,6 @@ if not currentSea then
     Players.LocalPlayer:Kick("PlaceId không hợp lệ!")
     return
 end
-
-local Sea1 = currentSea == 1
-local Sea2 = currentSea == 2
-local Sea3 = currentSea == 3
 
 -- ====================================================================
 -- 3. QUẢN LÝ NHÂN VẬT & MÁY CHỦ (CHARACTER MANAGER SYSTEM)
@@ -61,7 +58,7 @@ function CharacterManager.Get()
 end
 
 -- ====================================================================
--- 4. REMOTES & NET MODULE (CHUẨN CÁC HUB LỚN)
+-- 4. REMOTES & NET MODULE
 -- ====================================================================
 local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
 local CommF = Remotes and Remotes:WaitForChild("CommF_", 10)
@@ -69,31 +66,17 @@ local CommE = Remotes and Remotes:WaitForChild("CommE", 10)
 
 local EnemiesFolder = Workspace:WaitForChild("Enemies", 10)
 local NPCsFolder = Workspace:WaitForChild("NPCs", 10)
-local MapFolder = Workspace:WaitForChild("Map", 10)
-local SeaBeastsFolder = Workspace:FindFirstChild("SeaBeasts")
-local BoatsFolder = Workspace:FindFirstChild("Boats")
 
--- Khởi tạo Net Module Wrapper
-local NetModule, RegisterAttack, RegisterHit
+-- Lấy trực tiếp từ ReplicatedStorage.Modules.Net
+local ModulesFolder = ReplicatedStorage:WaitForChild("Modules", 10)
+local NetFolder = ModulesFolder and ModulesFolder:WaitForChild("Net", 10)
 
-local function GetNetModule()
-    if RegisterAttack and RegisterHit then
-        return true
-    end
+local RegisterAttack = NetFolder and NetFolder:WaitForChild("RE/RegisterAttack", 10)
+local RegisterHit = NetFolder and NetFolder:WaitForChild("RE/RegisterHit", 10)
 
-    local success, _ = pcall(function()
-        local Modules = ReplicatedStorage:WaitForChild("Modules", 5)
-        if Modules and Modules:FindFirstChild("Net") then
-            NetModule = require(Modules.Net)
-            RegisterAttack = NetModule:RemoteEvent("RegisterAttack")
-            RegisterHit = NetModule:RemoteEvent("RegisterHit")
-        end
-    end)
-
-    return success and (RegisterAttack ~= nil) and (RegisterHit ~= nil)
+local function GetNetRemotes()
+    return (RegisterAttack ~= nil) and (RegisterHit ~= nil)
 end
-
-GetNetModule()
 
 -- ====================================================================
 -- 5. KHỞI TẠO FRAMEWORK FLUENT UI & TABS
@@ -132,14 +115,11 @@ for _, tabData in ipairs(TabDefinitions) do
     Tabs[tabData[1]] = Window:AddTab({ Title = tabData[2], Icon = tabData[3] })
 end
 
--- ====================================================================
--- 6. BIẾN CẤU HÌNH DÙNG CHUNG (SHARED CONFIG VARIABLES)
--- ====================================================================
 local DEFAULT_CONFIG = "BloxFruit_" .. LocalPlayer.Name
 local autoSaveActive = true
 
 -- ====================================================================
--- 7. CÁC HÀM HOẠT ĐỘNG CHÍNH
+-- 6. CÁC HÀM TỰ ĐỘNG (ANTI-AFK, BUSO, KEN, NOCLIP)
 -- ====================================================================
 LocalPlayer.Idled:Connect(function()
     if Fluent.Options and Fluent.Options.AntiAFK and Fluent.Options.AntiAFK.Value then
@@ -151,7 +131,6 @@ LocalPlayer.Idled:Connect(function()
     end
 end)
 
--- Vòng lặp Auto Turn on Buso
 task.spawn(function()
     while task.wait(1) do
         pcall(function()
@@ -167,7 +146,6 @@ task.spawn(function()
     end
 end)
 
--- Vòng lặp Auto Turn on Ken (Haki Quan Sát)
 task.spawn(function()
     while task.wait(1) do
         pcall(function()
@@ -184,7 +162,6 @@ task.spawn(function()
     end
 end)
 
--- Vòng lặp No Clip (Xuyên Tường)
 RunService.Stepped:Connect(function()
     pcall(function()
         if Fluent.Options and Fluent.Options.Noclip and Fluent.Options.Noclip.Value then
@@ -200,60 +177,153 @@ RunService.Stepped:Connect(function()
     end)
 end)
 
+-- ====================================================================
+-- 7. TỐI ƯU HÓA HIỆU ỨNG (FX CLEANER & FPS BOOST)
+-- ====================================================================
+local function IsFXCleanerEnabled()
+    return Fluent
+        and Fluent.Options
+        and Fluent.Options.RemoveAttackFX
+        and Fluent.Options.RemoveAttackFX.Value
+end
+
+local function OptimizeLighting()
+    Lighting.GlobalShadows = false
+    Lighting.FogEnd = 9e9
+    for _, v in ipairs(Lighting:GetChildren()) do
+        if v:IsA("PostEffect") or v:IsA("Atmosphere") then
+            v.Enabled = false
+        end
+    end
+end
+
+local function DisableFX(v)
+    if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
+        v.Enabled = false
+    elseif v:IsA("Decal") or v:IsA("Texture") then
+        v.Texture = ""
+    end
+end
+
+Workspace.DescendantAdded:Connect(function(v)
+    if IsFXCleanerEnabled() then
+        DisableFX(v)
+        if v:IsA("BillboardGui") and (v.Name == "Damage" or v.Name:find("Damage") or v.Name == "DamageCounter") then
+            v.Enabled = false
+        end
+    end
+end)
+
+task.spawn(function()
+    OptimizeLighting()
+    while task.wait(1) do
+        if IsFXCleanerEnabled() then
+            pcall(function()
+                local fxFolder = Workspace:FindFirstChild("FX")
+                if fxFolder then
+                    fxFolder:ClearAllChildren()
+                end
+                for _, v in ipairs(Camera:GetChildren()) do
+                    if v:IsA("Model") or v:IsA("Part") then
+                        DisableFX(v)
+                    end
+                end
+            end)
+        end
+    end
+end)
 
 -- ====================================================================
--- 9. FAST ATTACK ENGINE (QUÉT NPC + QUÉT PLAYER TRỰC TIẾP)
+-- 8. FAST ATTACK ENGINE (OPTIMIZED DELAY & ANTI-CHECK BYPASS)
 -- ====================================================================
-local ATTACK_RADIUS = 60
+local CombatFramework = nil
+local activeController = nil
+
+task.spawn(function()
+    pcall(function()
+        local playerScripts = LocalPlayer:WaitForChild("PlayerScripts", 5)
+        if playerScripts then
+            local cfScript = playerScripts:WaitForChild("CombatFramework", 5)
+            if cfScript then
+                CombatFramework = require(cfScript)
+            end
+        end
+    end)
+end)
+
+local function GetActiveController()
+    if not CombatFramework then return nil end
+    pcall(function()
+        if debug and debug.getupvalues then
+            local upvalues = debug.getupvalues(CombatFramework)
+            if upvalues then
+                for _, v in pairs(upvalues) do
+                    if type(v) == "table" and rawget(v, "activeController") then
+                        activeController = v.activeController
+                        break
+                    end
+                end
+            end
+        end
+    end)
+    return activeController
+end
+
+-- Fast Attack Settings (An toàn & Chống Check)
+local ATTACK_RADIUS = 55      -- Bán kính va chạm an toàn
+local MAX_TARGETS = 10        -- Giới hạn mục tiêu tối đa/gói tin
+local comboCount = 1
 
 local function GetFastAttackTargets()
     local targets = {}
-    local char, root, hum = CharacterManager.Get()
-    if not char or not root then return targets end
-
+    local primaryTarget = nil
+    local char, root = CharacterManager.Get()
+    if not char or not root then return nil, targets end
     local myPos = root.Position
 
-    -- 1. Quét NPC / Quái vật
     if EnemiesFolder then
         for _, enemy in ipairs(EnemiesFolder:GetChildren()) do
+            local enemyHum = enemy:FindFirstChildOfClass("Humanoid")
             local enemyRoot = enemy:FindFirstChild("HumanoidRootPart") 
                                or enemy:FindFirstChild("UpperTorso") 
                                or enemy:FindFirstChild("Head")
-            local enemyHum = enemy:FindFirstChildOfClass("Humanoid")
 
-            if enemyRoot and enemyHum and enemyHum.Health > 0 then
-                local dist = (enemyRoot.Position - myPos).Magnitude
-                if dist <= ATTACK_RADIUS then
-                    table.insert(targets, {enemy, enemyRoot})
+            if enemyHum and enemyHum.Health > 0 and enemyRoot then
+                if (enemyRoot.Position - myPos).Magnitude <= ATTACK_RADIUS then
+                    if not primaryTarget then primaryTarget = enemyRoot end
+                    if #targets < MAX_TARGETS then
+                        table.insert(targets, enemyRoot)
+                    end
                 end
             end
         end
     end
 
-    -- 2. Tự động quét người chơi khác trong tầm đánh
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer and plr.Character then
-            local pChar = plr.Character
-            local pRoot = pChar:FindFirstChild("HumanoidRootPart") 
-                           or pChar:FindFirstChild("UpperTorso") 
-                           or pChar:FindFirstChild("Head")
-            local pHum = pChar:FindFirstChildOfClass("Humanoid")
-
-            if pRoot and pHum and pHum.Health > 0 then
-                local dist = (pRoot.Position - myPos).Magnitude
-                if dist <= ATTACK_RADIUS then
-                    table.insert(targets, {pChar, pRoot})
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            if hum and hum.Health > 0 and hrp then
+                if (hrp.Position - myPos).Magnitude <= ATTACK_RADIUS then
+                    if not primaryTarget then primaryTarget = hrp end
+                    if #targets < MAX_TARGETS then
+                        table.insert(targets, hrp)
+                    end
                 end
             end
         end
     end
 
-    return targets
+    return primaryTarget, targets
 end
 
+-- Vòng lặp Fast Attack chính (Cấu hình Delay hợp lý + Anti-Ban)
 task.spawn(function()
     while true do
-        task.wait(0.015 + (math.random(-2, 5) / 1000))
+        -- Dynamic Delay: 0.11s đến 0.15s (~7 - 9 hits/s)
+        -- Ngưỡng thời gian mô phỏng đòn đánh người thật, vượt qua hệ thống đếm tần suất Remote của Roblox
+        local currentDelay = math.random(110, 150) / 1000
+        task.wait(currentDelay)
 
         pcall(function()
             if Fluent.Options and Fluent.Options.FastAttack and Fluent.Options.FastAttack.Value then
@@ -263,12 +333,37 @@ task.spawn(function()
                 local tool = char:FindFirstChildOfClass("Tool")
                 if not tool then return end
 
-                if not GetNetModule() then return end
+                if not GetNetRemotes() then return end
 
-                local targets = GetFastAttackTargets()
-                if #targets > 0 then
-                    RegisterAttack:FireServer(0)
-                    RegisterHit:FireServer(targets[1][2], targets)
+                local primary, targets = GetFastAttackTargets()
+                if primary and #targets > 0 then
+                    local controller = GetActiveController()
+                    local maxCombo = 4
+
+                    if controller then
+                        controller.timeToNextAttack = 0
+                        controller.attacking = false
+                        controller.hitboxMagnitude = ATTACK_RADIUS
+                        
+                        -- Lấy maxCombo từ controller nếu có
+                        maxCombo = rawget(controller, "maxCombo") or controller.maxHits or 4
+                    end
+
+                    -- Tăng combo linh hoạt
+                    comboCount = (comboCount % maxCombo) + 1
+
+                    -- Bắn Remote an toàn với Delay thực tế
+                    RegisterAttack:FireServer(currentDelay, comboCount)
+                    RegisterHit:FireServer(primary, targets)
+
+                    -- Kích hoạt đòn đánh & Xóa hiệu ứng vung tay bị lag
+                    tool:Activate()
+                    for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
+                        local animId = track.Animation and track.Animation.AnimationId
+                        if animId and (animId:find("attack") or animId:find("slash") or animId:find("swing")) then
+                            track:Stop(0)
+                        end
+                    end
                 end
             end
         end)
@@ -276,10 +371,9 @@ task.spawn(function()
 end)
 
 -- ====================================================================
--- 10. XÂY DỰNG GIAO DIỆN CHỨC NĂNG CHÍNH (BUILD REAL UI ELEMENTS)
+-- 9. GIAO DIỆN VÀ LƯU CONFIG
 -- ====================================================================
 local function BuildUI()
-    -- TAB TELEPORT & PVP
     Tabs.TeleportPvP:AddSection("PvP Mechanics")
     Tabs.TeleportPvP:AddToggle("Noclip", {
         Title = "No Clip",
@@ -287,7 +381,6 @@ local function BuildUI()
         Default = false
     })
 
-    -- TAB SETTING
     Tabs.Setting:AddSection("Config File")
     Tabs.Setting:AddButton({
         Title = "Reset Config",
@@ -302,7 +395,7 @@ local function BuildUI()
             end)
             Fluent:Notify({
                 Title = "Fat Cat Hub",
-                Content = "Config deleted! Execute the script again to apply default.",
+                Content = "Config deleted!",
                 Duration = 5
             })
         end
@@ -311,10 +404,16 @@ local function BuildUI()
     Tabs.Setting:AddSection("Fast Attack Engine")
     Tabs.Setting:AddToggle("FastAttack", {
         Title = "Fast Attack",
-        Description = "Kích hoạt đánh nhanh (Bao gồm NPC & Player trong tầm)",
+        Description = "Kích hoạt đánh nhanh (Bypass Anti-Cheat & Dynamic Delay)",
         Default = true
     })
 
+    Tabs.Setting:AddSection("Performance")
+    Tabs.Setting:AddToggle("RemoveAttackFX", {
+        Title = "Remove Attack FX (FPS Boost)",
+        Description = "Tắt hiệu ứng, số dame & rung màn hình",
+        Default = true
+    })
 
     Tabs.Setting:AddSection("Automation & Protection")
     Tabs.Setting:AddToggle("AutoBuso", {
@@ -331,14 +430,11 @@ local function BuildUI()
 
     Tabs.Setting:AddToggle("AntiAFK", {
         Title = "Anti AFK",
-        Description = "Chống bị văng game khi treo máy",
+        Description = "Chống văng game khi treo máy",
         Default = true
     })
 end
 
--- ====================================================================
--- 11. QUẢN LÝ CẤU HÌNH & TỰ ĐỘNG LƯU (SAVE MANAGER & CONFIG)
--- ====================================================================
 local function SetupConfigManager()
     SaveManager:SetLibrary(Fluent)
     InterfaceManager:SetLibrary(Fluent)
@@ -375,9 +471,6 @@ local function SetupConfigManager()
     end)
 end
 
--- ====================================================================
--- 12. THỰC THI KHỞI CHẠY HỆ THỐNG
--- ====================================================================
 BuildUI()
 SetupConfigManager()
 
