@@ -234,7 +234,7 @@ task.spawn(function()
 end)
 
 -- ====================================================================
--- 8. FAST ATTACK ENGINE (OPTIMIZED DELAY & ANTI-CHECK BYPASS)
+-- 8. FAST ATTACK ENGINE (GẮN SYSTEM LOG CHI TIẾT ĐỂ SOI NGUYÊN NHÂN LỖI)
 -- ====================================================================
 local CombatFramework = nil
 local activeController = nil
@@ -269,9 +269,8 @@ local function GetActiveController()
     return activeController
 end
 
--- Fast Attack Settings (An toàn & Chống Check)
-local ATTACK_RADIUS = 55      -- Bán kính va chạm an toàn
-local MAX_TARGETS = 10        -- Giới hạn mục tiêu tối đa/gói tin
+local ATTACK_RADIUS = 55
+local MAX_TARGETS = 10
 local comboCount = 1
 
 local function GetFastAttackTargets()
@@ -317,11 +316,13 @@ local function GetFastAttackTargets()
     return primaryTarget, targets
 end
 
--- Vòng lặp Fast Attack chính (Cấu hình Delay hợp lý + Anti-Ban)
+-- Vòng lặp Fast Attack tích hợp Diagnostic Logger
 task.spawn(function()
+    print("--------------------------------------------------")
+    print("[FAT CAT HUB] 🚀 Đã bật Logger soi dữ liệu Fast Attack!")
+    print("--------------------------------------------------")
+
     while true do
-        -- Dynamic Delay: 0.11s đến 0.15s (~7 - 9 hits/s)
-        -- Ngưỡng thời gian mô phỏng đòn đánh người thật, vượt qua hệ thống đếm tần suất Remote của Roblox
         local currentDelay = math.random(110, 150) / 1000
         task.wait(currentDelay)
 
@@ -333,38 +334,61 @@ task.spawn(function()
                 local tool = char:FindFirstChildOfClass("Tool")
                 if not tool then return end
 
-                if not GetNetRemotes() then return end
-
+                local toolType = (tool.ToolTip and tool.ToolTip ~= "") and tool.ToolTip or "Khong Co ToolTip"
                 local primary, targets = GetFastAttackTargets()
-                if primary and #targets > 0 then
-                    local controller = GetActiveController()
-                    local maxCombo = 4
 
-                    if controller then
-                        controller.timeToNextAttack = 0
-                        controller.attacking = false
-                        controller.hitboxMagnitude = ATTACK_RADIUS
-                        
-                        -- Lấy maxCombo từ controller nếu có
-                        maxCombo = rawget(controller, "maxCombo") or controller.maxHits or 4
-                    end
+                if not primary or #targets == 0 then return end
 
-                    -- Tăng combo linh hoạt
-                    comboCount = (comboCount % maxCombo) + 1
+                local targetName = primary.Parent and primary.Parent.Name or "Unknown Target"
+                local dist = math.floor((primary.Position - root.Position).Magnitude)
+                local controller = GetActiveController()
+                local maxCombo = 4
 
-                    -- Bắn Remote an toàn với Delay thực tế
-                    RegisterAttack:FireServer(currentDelay, comboCount)
-                    RegisterHit:FireServer(primary, targets)
+                if controller then
+                    controller.timeToNextAttack = 0
+                    controller.attacking = false
+                    controller.hitboxMagnitude = ATTACK_RADIUS
+                    maxCombo = rawget(controller, "maxCombo") or controller.maxHits or 4
+                end
 
-                    -- Kích hoạt đòn đánh & Xóa hiệu ứng vung tay bị lag
-                    tool:Activate()
-                    for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
-                        local animId = track.Animation and track.Animation.AnimationId
-                        if animId and (animId:find("attack") or animId:find("slash") or animId:find("swing")) then
-                            track:Stop(0)
-                        end
+                comboCount = (comboCount % maxCombo) + 1
+
+                -- 1. PRINT LOG THÔNG SỐ VŨ KHÍ & MỤC TIÊU
+                print(string.format(
+                    "\n[FAT CAT DIAGNOSTIC - %s]\n" ..
+                    " 🎒 Tên Vũ Khí: %s | ToolTip (Loại): %s\n" ..
+                    " 🎯 Mục tiêu: %s | Khoảng cách: %d studs\n" ..
+                    " 👥 Số lượng mục tiêu nhận sát thương: %d\n" ..
+                    " ⚡ Combo Hit: %d/%d | Delay: %.3fs\n" ..
+                    " 📡 Net Remotes Available: %s",
+                    os.date("%X"),
+                    tool.Name, toolType,
+                    targetName, dist,
+                    #targets,
+                    comboCount, maxCombo, currentDelay,
+                    GetNetRemotes() and "Co (Ready)" or "Khong (Missing)"
+                ))
+
+                -- 2. THỬ BẮN REMOTE VÀ LOG KẾT QUẢ GỬI PACKET
+                if GetNetRemotes() then
+                    local attackOk, errAttack = pcall(function()
+                        RegisterAttack:FireServer(currentDelay, comboCount)
+                    end)
+
+                    local hitOk, errHit = pcall(function()
+                        RegisterHit:FireServer(primary, targets)
+                    end)
+
+                    if attackOk and hitOk then
+                        print(string.format(" 🟢 Gửi thành công RegisterAttack & RegisterHit cho [%s]", toolType))
+                    else
+                        warn(string.format(" 🔴 LỖI GỬI REMOTE: AttackErr: %s | HitErr: %s", tostring(errAttack), tostring(errHit)))
                     end
                 end
+
+                -- 3. KÍCH HOẠT VŨ KHÍ
+                tool:Activate()
+                print(" 🗡️ Đã gọi tool:Activate()")
             end
         end)
     end
